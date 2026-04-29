@@ -1,7 +1,7 @@
 # llama.cpp_SimpleWebUI
 
-![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image01.png "UIイメージ") 
-![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image02.png "UIイメージ") 
+![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image01.png "UIのイメージ") 
+![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image02.png "マルチモーダルのイメージ") 
 
 `llama.cpp` のサーバー機能など（OpenAI互換API）を利用して、ブラウザから簡単にLLMと対話できる軽量なWebUIです。
 マルチモーダル対応（画像入力）および会話履歴の保存機能を備えており、シングルHTMLファイルで動作します。
@@ -40,7 +40,7 @@
 
 ## ⚙️ 設定のカスタマイズ
 
-`index.html` 内の `<script>` セクションにある定数を変更することで、挙動を調整できます。
+基本的にUIから設定項目が見えていませんが、`index.html` 内の `<script>` セクションにある定数を変更することで、挙動を調整できます。
 
 - **APIエンドポイント**:
   - `API_URL`: `llama.cpp` サーバーのチャット補完エンドポイント（デフォルト: `http://localhost:8080/v1/chat/completions`）
@@ -58,8 +58,12 @@
 - **Code Highlighting**: [highlight.js](https://highlightjs.org/)
 - **Fonts**: Google Fonts (Noto Emoji)
 
+## 📝 ライセンス
+
+このプロジェクトはMITライセンスの下で公開されています。
+
 ---
 
 ### 💡 Tips for Developers
 - **画像リサイズ機能**: サーバーへの負荷と転送量を抑えるため、クライアント側で画像を最大400pxにリサイズして送信する処理を組み込んでいます。
-- **UIブロッカー**: 生成中は誤操作を防ぐため、サイドバーや入力エリアに透明なレイヤー（UI Blocker）を被せて操作を制限しています。"
+- **UIブロッカー**: 生成中は誤操作を防ぐため、サイドバーや入力エリアに透明なレイヤー（UI Blocker）を被せて操作を制限しています。
