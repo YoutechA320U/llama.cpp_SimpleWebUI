@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>llama.cpp simple WebUI (Multimodal)</title>
+
+<!-- ★ Noto Emoji を Google Fonts から読み込む -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Emoji&display=swap" rel="stylesheet">
+
+<style>
+/* -------------------------------------------------------------
+   0 ルート設定
+------------------------------------------------------------- */
+:root{
+  /* ---- 絵文字フォント ---- */
+  --emoji-font: "Noto Emoji";
+
+  /* ---- バブル全体 ---- */
+  --bubble-bg-user: #e0f7fa;
+  --bubble-bg-bot : #fff;
+  --bubble-fg     : #212121;
+  --bubble-radius : 16px;
+  --bubble-padding: 12px 16px;
+  --bubble-font    : "Helvetica Neue",Helvetica,Arial,sans-serif;
+  --bubble-fsize   : 0.95rem;
+  --bubble-lineh   : 1.6;
+
+  /* ---- コードブロック ---- */
+  --code-bg       : #1F1F1F;
+  --code-fg       : #D7D7D7;
+  --code-font     : "Source Code Pro", Menlo, Consolas, monospace;
+  --code-fsize    : 0.88rem;
+  --code-padding  : 0.6rem 0.8rem;
+  --code-radius   : 6px;
+
+  /* ---- サイドバーの標準幅（デスクトップ） ---- */
+  --sidebar-width: 260px;
+  /* ---- サイドバーの折りたたみ幅（モバイル/ミニ） ---- */
+  --sidebar-collapsed-width: 60px;
+}
+
+/* -------------------------------------------------------------
+   1. 基本レイアウト（レスポンシブ対応）
+------------------------------------------------------------- */
+body{
+    margin:0;
+    font-family: Helvetica,Arial,sans-serif;
+    background:#f5f5f5;
+    display:flex;
+    height:100vh;
+    overflow:hidden; /* 全体のスクロールを制御 */
+    transition: all 0.3s ease;
+}
+
+/* ---------- サイドバー ---------- */
+#sidebar{
+    width: var(--sidebar-width);
+    background:#fff;
+    border-right:1px solid #ddd;
+    display:flex;
+    flex-direction:column;
+    font-size: 0.9rem;
+    transition: width 0.3s ease;
+    flex-shrink: 0; /* サイズが縮まないようにする */
+}
+
+#sidebar.collapsed {
+    width: var(--sidebar-collapsed-width);
+}
+
+/* サイドバーが畳まれた状態のスタイル */
+#sidebar.collapsed {
+    width: var(--sidebar-collapsed-width);
+}
+
+/* サイドバーのトグルボタン（モバイルでのみ表示） */
+#sidebar-toggle {
+    display: none; /* デフォルトでは非表示 */
+    align-self: flex-end;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #ddd;
+    cursor: pointer;
+    font-size: 1.2rem;
+    z-index: 100; /* 他の要素より前面に出す */
+}
+
+#sidebar h3{
+    margin:0;
+    padding:12px 16px;
+    background:#f0f0f0;
+    font-size:1.0rem;
+    border-bottom:1px solid #ddd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* サイドバーが畳まれたとき、h3のテキストを隠し、アイコンのみ表示させる */
+#sidebar.collapsed h3 {
+    text-align: center;
+    padding: 12px 0;
+}
+
+/* ボタンを横並びにするラッパー */
+#export-import-wrapper{
+    display:flex;
+    gap:8px;
+    padding:0 4px;
+    margin-top:4px;
+    margin-bottom:4px;
+}
+
+/* ---------- 会話リスト ---------- */
+#conv-list{
+    flex:1;
+    margin:0;
+    padding:0;
+    list-style:none;
+    overflow-y:auto;
+}
+#conv-list li{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 12px;
+    cursor:pointer;
+    border-bottom:1px solid #eee;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#conv-list li:hover{
+    background:#f9f9f9;
+}
+#conv-list li.active{
+    background:#e0f7fa;
+}
+.conv-name{
+    flex:1;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    margin-right: 10px; /* アイコンと名の間に少しスペースを確保 */
+}
+.del-btn{
+    background:none;
+    border:none;
+    color:#c00;
+    font-weight:bold;
+    cursor:pointer;
+    padding:0 4px;
+    flex-shrink: 0; /* 縮まないように */
+}
+.del-btn:hover{
+    color:#900;
+}
+
+/* ★ 追加 ★ 名前編集ボタン */
+.edit-btn{
+    background:none;
+    border:none;
+    color:#0066cc;
+    font-size:1.1rem;
+    cursor:pointer;
+    padding:0 4px;
+    font-family: var(--emoji-font), sans-serif;
+    flex-shrink: 0;
+}
+.edit-btn:hover{
+    color:#003399;
+}
+
+/* ---------- ボタン ---------- */
+#new-conv{
+    margin:4px;
+    padding:8px 12px;
+    background:#1976d2;
+    color:#fff;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+    flex-shrink: 0; /* 縮まないように */
+}
+#new-conv:hover{ background:#1871ca; }
+
+/* エクスポート/インポートは色を変えて目立たせる */
+#export-conv{
+    margin:0;
+    padding:8px 12px;
+    background:#4caf50;
+    color:#fff;
+    border:none;
+    border-radius:4px;
+    flex:1;
+}
+#export-conv:hover{ background:#43a047; }
+#import-conv{
+    margin:0;
+    padding:8px 12px;
+    background:#ff9800;
+    color:#fff;
+    border:none;
+    border-radius:4px;
+    flex:1;
+}
+#import-conv:hover{ background:#fb8c00; }
+
+/* ---------- メインエリア ---------- */
+#main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    overflow-y:auto; /* メインエリアでスクロール */
+    padding:20px;
+    transition: margin-left 0.3s ease; /* サイドバーの移動に合わせてアニメーション */
+}
+#title{
+    margin:0 0 20px;
+    color:#333;
+}
+
+/* タイトル横の会話名 */
+#conv-title{
+    font-weight:normal;
+    font-size:0.85em;
+    color:#555;
+    margin-left:0.8rem;
+}
+/* -------------------------------------------------------------
+   レスポンシブ対応：モバイルビュー (max-width: 768px)
+------------------------------------------------------------- */
+@media (max-width: 768px) {
+    /* サイドバーをデフォルトで非表示にし、トグルで表示させる */
+    #sidebar {
+        position: absolute;
+        height: 100vh;
+        z-index: 50; /* メインコンテンツより手前 */
+        transform: translateX(-100%); /* 初期状態は画面外に隠す */
+        box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+    }
+    #sidebar.open {
+        transform: translateX(0); /* 開いた状態 */
+    }
+    /* モバイル時はサイドバーの幅を固定 */
+    #sidebar.collapsed {
+        width: var(--sidebar-collapsed-width);
+    }
+
+    /* メインコンテンツのパディングを調整し、トグルボタンを表示 */
+    #main {
+        padding-left: 0;
+        padding-right: 0;
+    }
+    #sidebar-toggle {
+        display: block; /* モバイルではトグルボタンを表示 */
+    }
+
+    /* サイドバーが画面外にあるとき（非表示時）は、メインコンテンツが全幅を取るように調整する */
+    body.sidebar-closed #main {
+        /* 常に全幅を使用 */
+        width: 100%;
+    }
+}
+
+/* -------------------------------------------------------------
+   2. チャット領域
+------------------------------------------------------------- */
+#chat{
+    flex:1;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding-bottom: 20px;
+}
+
+/* -------------------------------------------------------------
+   3. メッセージ行と吹き出し（バブル）
+------------------------------------------------------------- */
+.msg-row {
+    display: flex;
+    align-items: flex-end;
+    width: 100%;
+}
+.msg-row.bot {
+    justify-content: flex-start;
+}
+.msg-row.user {
+    justify-content: flex-end;
+}
+
+/* アクションボタン（再実行・編集）のコンテナ */
+.msg-actions {
+    display: flex;
+    gap: 4px;
+    margin: 0 8px;
+    opacity: 0; /* デフォルトは非表示 */
+    transition: opacity 0.2s;
+}
+.msg-row:hover .msg-actions {
+    opacity: 1;
+}
+.action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 2px;
+    color: #666;
+    font-family: var(--emoji-font), sans-serif;
+}
+.action-btn:hover {
+    color: #000;
+    transform: scale(1.1);
+}
+.bubble{
+  max-width:80%;
+  padding: var(--bubble-padding);
+  border-radius: var(--bubble-radius);
+  line-height: var(--bubble-lineh);
+  font-family: var(--bubble-font);
+  font-size: var(--bubble-fsize);
+  color: var(--bubble-fg);
+  background: var(--bubble-bg-bot);   /* デフォルトは bot 用 */
+  word-wrap: break-word; /* 長い単語がはみ出さないように */
+}
+.bot .bubble{
+    border-bottom-left-radius: 2px;
+}
+.user .bubble{
+  background: var(--bubble-bg-user);
+    border-bottom-right-radius: 2px;
+}
+
+/* コードブロック（<pre><code>）の見た目 */
+.bubble pre{
+  background: var(--code-bg);
+  padding: var(--code-padding);
+  border-radius: var(--code-radius);
+  overflow-x:auto;            /* 横スクロール */
+  margin: 0.8rem 0;           /* 上下の余白 */
+  position:relative;          /* コピー・展開ボタンの基点 */
+}
+.bubble pre code{
+  background: var(--code-bg);
+  color: var(--code-fg);
+  font-family: var(--code-font);
+  font-size: var(--code-fsize);
+  padding: 0;                 /* 余計な padding を除去 */
+  border-radius: var(--code-radius);
+}
+
+/* コピー／展開ボタンの共通デザイン */
+.copy-btn,
+.toggle-btn{
+    position:absolute;
+    top:4px;
+    right:4px;
+    background:#eee;
+    border:none;
+    padding:2px 6px;
+    font-size:0.75rem;
+    cursor:pointer;
+    border-radius:3px;
+    opacity:0.8;
+    z-index: 10; /* 他の要素の上に表示 */
+}
+.copy-btn:hover,
+.toggle-btn:hover{
+    background:#ddd;
+}
+
+/* インラインコードは少しだけ装飾 */
+.bubble code{
+  background:#f0f0f0;
+  color:#c7254e;
+  padding:0.1rem 0.3rem;
+  border-radius:3px;
+  font-family:var(--code-font);
+  font-size:0.94em;
+}
+
+/* 行間・段落マージンの微調整（必要なら）*/
+.bubble p{
+  margin:0 0 0rem 0;   /* 段落間の余白 */
+}
+
+/* テーブルの見た目を整える */
+.bubble table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8rem 0;
+}
+.bubble th,
+.bubble td {
+    border: 1px solid #ddd;
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+}
+.bubble th {
+    background: #f0f0f0;
+}
+
+/* 折りたたみ時のスタイル */
+.collapsed{
+    max-height:200px;               /* 目安の高さ */
+    overflow:hidden;
+    position:relative;
+}
+.collapsed::after{
+    content:"";
+    position:absolute;
+    bottom:0; left:0; right:0;
+    height:40px;
+    background:linear-gradient(to bottom,transparent,var(--bubble-bg-bot));
+}
+
+/* -------------------------------------------------------------
+   4. 入力エリア
+------------------------------------------------------------- */
+#input-container {
+    display: flex;
+    flex-direction: column;
+    margin-top: 12px;
+}
+/* ★ 画像プレビューエリア ★ */
+#image-preview-area {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.preview-item {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-size: cover;
+    background-position: center;
+}
+.remove-img-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #f44334;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+}
+
+#input-area{
+    display:flex;
+    gap:8px;
+    margin-top:12px;
+}
+#attach-img-btn {
+    padding: 10px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+}
+#attach-img-btn:hover { background: #eee; }
+#user-input{
+    flex:1;
+    min-height:120px;
+    height:auto;
+    max-height:300px;
+    padding:10px;
+    font-size:1rem;
+    border:1px solid #bbb;
+    border-radius:4px;
+    resize:vertical;
+    box-sizing:border-box;
+}
+#send-btn{
+    padding:10px 16px;
+    font-size:1rem;
+    cursor:pointer;
+}
+#stop-btn {
+    padding: 10px 16px;
+    font-size: 1rem;
+    cursor: pointer;
+    background: #f44336;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    display: none; /* 通常時は非表示 */
+}
+
+/* UIブロック中でも停止ボタンだけはクリック可能にする */
+#stop-btn:not(:disabled) {
+    position: relative;
+    z-index: 10000; /* ui-blocker(9999) より前面へ */
+}
+/* キャンセルボタン（編集中だけ表示） */
+#cancel-edit-btn{
+    padding:10px 16px;
+    font-size:1rem;
+    cursor:pointer;
+    background:#f44334;
+    color:#fff;
+    border:none;
+    border-radius:4px;
+    display:none;   /* デフォルト非表示 */
+}
+
+/* -------------------------------------------------------------
+   5. ローディングインジケータ
+------------------------------------------------------------- */
+.loading{
+    display:inline-block;
+    width:6px;
+    height:6px;
+    margin-left:4px;
+    background:#777;
+    border-radius:50%;
+    animation:blink 1s infinite;
+}
+@keyframes blink{
+    0%   {opacity:0.2;}
+    50%  {opacity:1;}
+    100% {opacity:0.2;}
+}
+
+/* -------------------------------------------------------------
+   6. UIブロッカー（ストリーミング中に全操作を無効化）
+------------------------------------------------------------- */
+#ui-blocker{
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background:transparent; /* ★ 背景を完全に透明にする ★ */
+    z-index:9999;
+    display:none;   /* デフォルト非表示 */
+}
+/* -------------------------------------------------------------
+   6‑1. サイドバーがロック中の見た目
+------------------------------------------------------------- */
+#sidebar.locked{
+    /* 色味は不透明度を0.5にすることで薄くする */
+    opacity: 0.5;
+    /* クリック等の操作を受け付けない */
+    pointer-events: none;
+    /* スムーズに変化させる */
+    transition: opacity 0.2s ease;
+}
+</style>
+
+<!-- ★ Markdown パーサ (marked.js) を CDN から読み込み -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+/* ここで marked の設定を行う */
+marked.setOptions({
+    gfm: true,          // GitHub Flavored Markdown (テーブル等)
+    tables: true,       // テーブルを有効化（念のため）
+    breaks: false,      // <br> は自動で入れない
+    smartLists: true
+});
+</script>
+<!-- ★ highlight.js 本体とテーマ -->
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/vs2015.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+</head>
+<body class="sidebar-closed">
+
+<!-- サイドバーのトグルボタン (モバイル用) -->
+<button id="sidebar-toggle">☰</button>
+
+<div id="sidebar">
+    <h3 id="sidebar-header">会話履歴</h3>
+    <ul id="conv-list"></ul>
+    <button id="new-conv">＋ 新しい会話</button>
+
+    <!-- ★ インポート・エクスポートを横並びにするラッパー ★ -->
+    <div id="export-import-wrapper">
+        <button id="export-conv">エクスポート</button>
+        <button id="import-conv">インポート</button>
+    </div>
+
+    <!-- 隠しファイル入力 (インポート用) -->
+    <input type="file" id="import-file" accept=".json" style="display:none;">
+</div>
+
+<div id="main">
+    <!-- タイトルに会話名を表示する -->
+    <h2 id="title"><span id="conv-title"></span></h2>
+    <div id="chat"></div>
+
+    <div id="input-container">
+        <div id="image-preview-area"></div>
+        
+        <div id="input-area">
+            <button id="attach-img-btn" title="画像を添付">🖼️</button>
+            <input type="file" id="img-input" accept="image/*" multiple style="display:none;">
+            <textarea id="user-input" rows="4" placeholder="質問を入力…"></textarea>
+            <button id="send-btn">送信</button>
+            <button id="stop-btn">停止</button>
+            <button id="cancel-edit-btn">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+<div id="ui-blocker"></div>
+
+<script>
+/* -------------------------------------------------------------
+   0. 定数・ストレージキー
+------------------------------------------------------------- */
+const API_URL          = "http://192.168.1.101:8080/v1/chat/completions";
+const STOP_API_URL     = "http://192.168.1.101:8080/v1/stop";
+const STORAGE_KEY      = "llm_conversations";
+const SIDEBAR_STATE_KEY = "sidebar_open"; // サイドバーの状態を保存するキー
+
+/* ---- LLM へ渡すパラメータ ---- */
+const TEMPERATURE   = 0.8;   // 生成温度
+const TOP_P         = 0.95;   // nucleus sampling の上限確率
+const PRESENCE_PENALTY= 0.0;   // 過去に同じトークンが現れたか否かによって、一定のペナルティ
+const FREQUENCY_PENALTY= 0.0;//過去に同じトークンが現れた回数が増えれば増えるほど、大きなペナルティ
+
+/* ---- 特殊トークン定義（通常llama.cppは自動でチャットテンプレートが適用されます。必要に応じて追加してください。） ---- */
+const SYSTEM_BOS_TOKEN     = "";
+const SYSTEM_EOS_TOKEN     = "";
+const USER_BOS_TOKEN       = "";
+const USER_EOS_TOKEN       = "";
+const ASSISTANT_BOS_TOKEN  = "";
+const ASSISTANT_EOS_TOKEN  = "";
+
+//* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
+const TRIM_TOKEN_01 = "</think>\n";   // 例: 「<END>」以降だけを残す
+const TRIM_TOKEN_02 = "<|end|>";   // 例: 「<END>」以降だけを残す
+const TRIM_TOKEN_03 = "<channel|>";   // 例: 「<END>」以降だけを残す
+
+/* -------------------------------------------------------------
+   1. SYSTEM_ROLE（別ファイル）
+------------------------------------------------------------- */
+
+
+function formatNow() {
+    const now = new Date();
+    const y  = now.getFullYear();
+    const m  = String(now.getMonth() + 1).padStart(2, '0');
+    const d  = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `${y}/${m}/${d} ${hh}:${mm}`;
+}
+function getSystemRole() {
+    return SYSTEM_ROLE_TEMPLATE.replace("{time}", formatNow());
+}
+
+/* -------------------------------------------------------------
+   2. UI 要素取得
+------------------------------------------------------------- */
+const chatDiv           = document.getElementById('chat');
+const userInput         = document.getElementById('user-input');
+const sendBtn           = document.getElementById('send-btn');
+const stopBtn           = document.getElementById('stop-btn');
+const cancelEditBtn     = document.getElementById('cancel-edit-btn');
+const convListEl        = document.getElementById('conv-list');
+const newConvBtn        = document.getElementById('new-conv');
+const titleEl           = document.getElementById('title');
+const convTitleEl       = document.getElementById('conv-title');
+const uiBlocker         = document.getElementById('ui-blocker');
+const sidebarEl         = document.getElementById('sidebar');
+const sidebarToggleBtn  = document.getElementById('sidebar-toggle');
+const bodyEl            = document.body;
+
+/* エクスポート / インポート用要素 */
+const exportBtn         = document.getElementById('export-conv');
+const importBtn         = document.getElementById('import-conv');
+const importFileInput   = document.getElementById('import-file');
+
+// 画像関連の要素
+const attachImgBtn      = document.getElementById('attach-img-btn');
+const imgInput          = document.getElementById('img-input');
+const imagePreviewArea  = document.getElementById('image-preview-area');
+
+/* -------------------------------------------------------------
+   3. UI ロック／アンロック
+------------------------------------------------------------- */
+function blockUI(){
+    uiBlocker.style.display = 'block';
+    userInput.disabled = true;
+    sendBtn.style.display = 'none';      // 送信ボタンを隠す
+    stopBtn.style.display = 'inline-block'; // 停止ボタンを出す
+    cancelEditBtn.disabled = true;
+    newConvBtn.disabled    = true;
+    attachImgBtn.disabled  = true;
+    sidebarEl.classList.add('locked');
+}
+function unblockUI(){
+    uiBlocker.style.display = 'none';
+    userInput.disabled = false;
+    sendBtn.style.display = 'inline-block'; // 送信ボタンを戻す
+    stopBtn.style.display = 'none';      // 停止ボタンを隠す
+    cancelEditBtn.disabled = false;
+    newConvBtn.disabled    = false;
+    attachImgBtn.disabled  = false;
+    sidebarEl.classList.remove('locked');
+}
+
+/* -------------------------------------------------------------
+   4. データ構造と状態管理
+------------------------------------------------------------- */
+let conversations = [];
+let curConvId = null;
+
+let editState = {
+    active: false,
+    index:  null
+};
+
+let isSidebarOpen = false;
+
+// 添付予定の画像（Base64形式の文字列の配列）
+let currentPendingImages = [];
+
+/* -------------------------------------------------------------
+   4-1. 画像選択・プレビュー処理
+------------------------------------------------------------- */
+attachImgBtn.addEventListener('click', () => {
+    imgInput.click();
+});
+
+imgInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+        processImageFile(file); // 共通関数を呼び出す
+    });
+    imgInput.value = ''; // リセット
+});
+
+
+/**
+ * 画像を読み込み、長辺が指定したサイズになるようにリサイズして新しいData URLを返す非同期関数
+ * param {string} dataUrl - 読み込まれた画像のData URL
+ * returns {Promise<string>} リサイズ後の画像のData URL
+ */
+function resizeImage(dataUrl) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const maxWidth = 400;
+            const maxHeight = 400;
+
+            let width = img.width;
+            let height = img.height;
+
+            // アスペクト比を維持しながら、長辺が指定サイズを超える場合に縮小する
+            if (width > maxWidth || height > maxHeight) {
+                let ratio = Math.min(maxWidth / width, maxHeight / height);
+                width = width * ratio;
+                height = height * ratio;
+            }
+
+            // Canvasの設定
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            // 画像を描画（リサイズ適用）
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // リサイズされた画像をData URLとして取得
+            const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.9); // 品質指定（任意）
+            resolve(resizedDataUrl);
+        };
+        img.onerror = (err) => {
+            reject(new Error("画像のロードに失敗しました。"));
+        };
+        // Data URLをセットして画像ロードを開始
+        img.src = dataUrl;
+    });
+}
+
+function renderPendingImages() {
+    imagePreviewArea.innerHTML = '';
+    currentPendingImages.forEach((dataUrl, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'preview-item';
+        wrapper.style.backgroundImage = `url(${dataUrl})`;
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-img-btn';
+        removeBtn.innerHTML = '×';
+        removeBtn.onclick = () => {
+            currentPendingImages.splice(index, 1);
+            renderPendingImages();
+        };
+        
+        wrapper.appendChild(removeBtn);
+        imagePreviewArea.appendChild(wrapper);
+    });
+}
+/* -------------------------------------------------------------
+   4-2. ペースト・ドラッグアンドドロップ処理 (追加)
+------------------------------------------------------------- */
+
+// --- ペーストイベント (Ctrl+V) ---
+userInput.addEventListener('paste', (e) => {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let item of items) {
+        if (item.type.indexOf("image") !== -1) {
+            const file = item.getAsFile();
+            processImageFile(file);
+        }
+    }
+});
+
+// --- ドラッグ＆ドロップイベント ---
+// 画面全体でドロップを受け付ける（誤操作防止のため dragover を抑制）
+window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+});
+
+window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(file => {
+        if (file.type.startsWith('image/')) {
+            processImageFile(file);
+        }
+    });
+});
+
+/**
+ * ファイルを読み込んでリサイズし、プレビューに追加する共通関数
+ */
+function processImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const dataUrl = ev.target.result;
+        resizeImage(dataUrl)
+            .then(resizedDataUrl => {
+                currentPendingImages.push(resizedDataUrl);
+                renderPendingImages();
+            })
+            .catch(err => console.error("処理エラー:", err));
+    };
+    reader.readAsDataURL(file);
+}
+/* -------------------------------------------------------------
+   5. ローカルストレージ操作
+------------------------------------------------------------- */
+function loadFromStorage(){
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw){
+        try{
+            conversations = JSON.parse(raw);
+        }catch(e){
+            console.warn('Storage parse error:',e);
+            conversations = [];
+        }
+    }
+    if (conversations.length===0) createNewConversation();
+
+    const savedCur = localStorage.getItem(STORAGE_KEY+"_cur");
+    if (savedCur && conversations.find(c=>c.id===savedCur)){
+        curConvId = savedCur;
+    }else{
+        curConvId = conversations[0].id;
+    }
+    
+    const savedSidebarState = localStorage.getItem(SIDEBAR_STATE_KEY);
+    if (savedSidebarState === 'true') {
+        isSidebarOpen = true;
+    }
+
+    saveToStorage();
+}
+function saveToStorage(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+    localStorage.setItem(STORAGE_KEY+"_cur", curConvId);
+    localStorage.setItem(SIDEBAR_STATE_KEY, isSidebarOpen ? 'true' : 'false');
+}
+
+/* エクスポート・インポート */
+exportBtn.addEventListener('click', exportConversations);
+importBtn.addEventListener('click', importConversations);
+
+/**
+ * 会話データをJSON形式でダウンロードします。
+ * ファイル名はプロンプトで指定可能になります。
+ */
+function exportConversations() {
+    // 1. 現行のコードで生成されるデフォルトのファイル名を作成
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const defaultFilename = `conversations_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+
+    // 2. ファイル名入力を促すプロンプトを表示し、キャンセル処理を考慮する
+    const customFilename = prompt("ダウンロードするファイル名を入力してください。\n(入力しない場合は現在のタイムスタンプ名が使用されます。)", defaultFilename);
+
+    // 3. キャンセルされた場合（nullが返された場合）は処理を中断
+    if (customFilename === null) {
+        console.log("ユーザーによりファイル名入力がキャンセルされました。処理を中断します。");
+        return; // 関数を終了
+    }
+
+    // 4. ファイル名が空の場合（ユーザーがEnterキーを押して何も入力しなかった場合）もデフォルト名を使用
+    const filenameToUse = customFilename || defaultFilename;
+
+    // データ処理とダウンロードの実行
+    try {
+        const data = JSON.stringify(conversations, null, 2);
+        const blob = new Blob([data], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        
+        // ユーザーが指定した名前（またはデフォルト名）を適用
+        a.download = filenameToUse; 
+        
+        a.click();
+        URL.revokeObjectURL(url);
+        console.log(`会話データをファイル名 "${filenameToUse}" でダウンロードしました。`);
+    } catch (error) {
+        console.error("ファイルのダウンロード中にエラーが発生しました:", error);
+    }
+}
+
+function importConversations(){ importFileInput.click(); }
+importFileInput.addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = ev=>{
+        try{
+            const parsed = JSON.parse(ev.target.result);
+            if (!Array.isArray(parsed)){
+                alert('インポートファイルの形式が正しくありません。');
+                return;
+            }
+            conversations = parsed;
+            curConvId = conversations[0]?.id || null;
+            saveToStorage();
+            renderSidebar();
+            const cur = conversations.find(c=>c.id===curConvId);
+            renderChat(cur);
+            updateTitle();
+        }catch(err){
+            console.error(err);
+            alert('JSON の解析に失敗しました。');
+        }
+    };
+    reader.readAsText(file);
+    importFileInput.value = '';
+});
+
+/* -------------------------------------------------------------
+   6. サイドバー描画
+------------------------------------------------------------- */
+function renderSidebar(){
+    convListEl.innerHTML = "";
+    conversations.forEach(conv=>{
+        const li = document.createElement('li');
+        li.dataset.id = conv.id;
+        if (conv.id===curConvId) li.classList.add('active');
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'conv-name';
+        nameSpan.textContent = conv.name;
+        li.appendChild(nameSpan);
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'edit-btn';
+        editBtn.title = '名前を編集';
+        editBtn.textContent = '✒';
+        li.appendChild(editBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'del-btn';
+        delBtn.title = '削除';
+        delBtn.textContent = '✖';
+        li.appendChild(delBtn);
+
+        li.addEventListener('click', e=>{
+            if (e.target===editBtn || e.target===delBtn) return;
+            selectConversation(conv.id);
+        });
+
+        editBtn.addEventListener('click', e=>{
+            e.stopPropagation();
+            const newName = prompt('会話名を入力してください', conv.name);
+            if (newName===null) return;
+            const trimmed = newName.trim();
+            if (trimmed){
+                conv.name = trimmed;
+                saveToStorage();
+                renderSidebar();
+                updateTitle();
+            }
+        });
+
+        delBtn.addEventListener('click', e=>{
+            e.stopPropagation();
+            if (confirm(`「${conv.name}」 を削除しますか？`)){
+                deleteConversation(conv.id);
+            }
+        });
+
+        convListEl.appendChild(li);
+    });
+}
+
+/* -------------------------------------------------------------
+   7. 会話操作
+------------------------------------------------------------- */
+function createNewConversation(){
+    const now = new Date();
+    const id   = now.getTime().toString();
+    const name = `会話 ${now.toLocaleString()}`;
+    const newConv = {id, name, messages:[]};
+    conversations.unshift(newConv);
+    curConvId = id;
+    saveToStorage();
+    renderSidebar();
+    renderChat(newConv);
+    updateTitle();
+}
+function selectConversation(id){
+    cancelEdit();
+    curConvId = id;
+    const conv = conversations.find(c=>c.id===id);
+    renderChat(conv);
+    renderSidebar();
+    saveToStorage();
+    updateTitle();
+}
+function deleteConversation(id){
+    if (conversations.length===1){
+        alert('最後の会話は削除できません。');
+        return;
+    }
+    const idx = conversations.findIndex(c=>c.id===id);
+    if (idx===-1) return;
+    conversations.splice(idx,1);
+    if (curConvId===id){
+        curConvId = conversations[0].id;
+    }
+    saveToStorage();
+    renderSidebar();
+    const cur = conversations.find(c=>c.id===curConvId);
+    renderChat(cur);
+    updateTitle();
+}
+
+/* -------------------------------------------------------------
+   8. タイトル更新
+------------------------------------------------------------- */
+function updateTitle(){
+    const curConv = conversations.find(c => c.id===curConvId);
+    if (curConv){
+        convTitleEl.textContent = `${curConv.name}`;
+    }else{
+        convTitleEl.textContent = '';
+    }
+}
+
+/* -------------------------------------------------------------
+   9. ユーティリティ
+------------------------------------------------------------- */
+function applyHighlightAndCopy(container){
+    container.querySelectorAll('pre code').forEach(block=>{
+        hljs.highlightElement(block);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async e=>{
+            e.stopPropagation();
+            try{
+                await navigator.clipboard.writeText(block.innerText);
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(()=>{ btn.textContent = orig; }, 1500);
+            }catch(err){
+                console.error('Copy failed', err);
+            }
+        });
+        const existing = block.parentNode.querySelector('.copy-btn');
+        if (existing) existing.remove();
+        block.parentNode.appendChild(btn);
+    });
+}
+
+function addCollapsible(bubble){
+    if (bubble.classList.contains('collapsible-processed')) return;
+    bubble.classList.add('collapsible-processed');
+    requestAnimationFrame(()=>{
+        const height = bubble.scrollHeight;
+        if (height > 200){
+            bubble.classList.add('collapsed');
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'toggle-btn';
+            toggle.textContent = 'Show more';
+            toggle.addEventListener('click', e=>{
+                e.stopPropagation();
+                if (bubble.classList.contains('collapsed')){
+                    bubble.classList.remove('collapsed');
+                    toggle.textContent = 'Show less';
+                }else{
+                    bubble.classList.add('collapsed');
+                    toggle.textContent = 'Show more';
+                }
+            });
+            const existing = bubble.querySelector('.toggle-btn');
+            if (existing) existing.remove();
+            bubble.appendChild(toggle);
+        }
+    });
+}
+
+/* -------------------------------------------------------------
+   10. Markdown 前処理（シングル改行 → ダブル改行）
+   ・コードブロック（``` で囲まれた領域）内では変換しない
+   ・テーブルブロック（|などで囲まれた領域）内では変換しない
+   ・2 つ以上連続する改行はそのまま保持
+------------------------------------------------------------- */
+function preprocessMarkdown(text){
+    if(!text) return "";
+    const lines = text.split('\n');
+    const out   = [];
+    let inCodeBlock = false;
+    let inTableBlock = false;
+
+    for(let i=0;i<lines.length;i++){
+        const line = lines[i];
+        if (line.trim().startsWith('```')){
+            out.push(line);
+            inCodeBlock = !inCodeBlock;
+            continue;
+        }
+        if (inCodeBlock){
+            out.push(line);
+            continue;
+        }
+        const isTableRow = line.trim().startsWith('|');
+        const isTableSep = line.trim().match(/^(\s*\|?[-:]+\s*\|)+\s*$/);
+        if (isTableRow || isTableSep){
+            inTableBlock = true;
+            out.push(line);
+            continue;
+        }
+        if (inTableBlock && line.trim() === ''){
+            inTableBlock = false;
+        }
+        out.push(line);
+        if (!inTableBlock && line.trim() !== '' && i+1 < lines.length && lines[i+1].trim() !== ''){
+            out.push('');
+        }
+    }
+    return out.join('\n');
+}
+
+/* -------------------------------------------------------------
+   11. チャット表示（履歴の再描画）
+------------------------------------------------------------- */
+function renderChat(conv){
+    chatDiv.innerHTML = "";
+    if (!conv) return;
+
+    conv.messages.forEach((msg, index) => {
+        const isUser = msg.role === 'user';
+        const row = document.createElement('div');
+        row.className = `msg-row ${isUser ? 'user' : 'bot'}`;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        
+        // ★ 画像がある場合は表示する
+        if (msg.images && msg.images.length > 0) {
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'chat-images';
+            msg.images.forEach(dataUrl => {
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                imgContainer.appendChild(img);
+            });
+            bubble.appendChild(imgContainer);
+        }
+        
+        // テキストを描画
+        if (msg.content) {
+            const textDiv = document.createElement('div');
+            textDiv.innerHTML = marked.parse(preprocessMarkdown(msg.content));
+            bubble.appendChild(textDiv);
+        }
+
+        applyHighlightAndCopy(bubble);
+        addCollapsible(bubble);
+
+        if (isUser) {
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'msg-actions';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-btn';
+            editBtn.textContent = '✒';
+            editBtn.title = '編集する';
+            editBtn.onclick = () => onEditMessage(index);
+
+            const rerunBtn = document.createElement('button');
+            rerunBtn.className = 'action-btn';
+            rerunBtn.textContent = '🔁';
+            rerunBtn.title = 'ここから再生成';
+            rerunBtn.onclick = () => onRerunMessage(index);
+
+            actionsDiv.appendChild(rerunBtn);
+            actionsDiv.appendChild(editBtn);
+
+            row.appendChild(actionsDiv);
+            row.appendChild(bubble);
+        } else {
+            row.appendChild(bubble);
+        }
+
+        chatDiv.appendChild(row);
+    });
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+}
+
+/* -------------------------------------------------------------
+   12. 編集・再実行のロジック
+------------------------------------------------------------- */
+function onEditMessage(index) {
+    const curConv = conversations.find(c => c.id === curConvId);
+    if (!curConv) return;
+    const targetMsg = curConv.messages[index];
+    userInput.value = targetMsg.content || "";
+    
+    // 編集時に画像も復元
+    currentPendingImages = targetMsg.images ? [...targetMsg.images] : [];
+    renderPendingImages();
+
+    userInput.focus();
+    editState.active = true;
+    editState.index  = index;
+    cancelEditBtn.style.display = 'inline-block';
+}
+
+function onRerunMessage(index) {
+    if (window.innerWidth <= 768 && isSidebarOpen) {
+        sidebarToggleBtn.click();
+    }
+    cancelEdit();
+    const curConv = conversations.find(c => c.id === curConvId);
+    if (!curConv) return;
+
+    curConv.messages = curConv.messages.slice(0, index + 1);
+    saveToStorage();
+    renderChat(curConv);
+    streamBotResponse(curConv);
+}
+
+cancelEditBtn.addEventListener('click', cancelEdit);
+/* -------------------------------------------------------------
+   13. 編集キャンセルロジック
+------------------------------------------------------------- */
+function cancelEdit(){
+    if (!editState.active) return;
+    editState.active = false;
+    editState.index  = null;
+    userInput.value = '';
+    currentPendingImages = [];
+    renderPendingImages();
+    cancelEditBtn.style.display = 'none';
+}
+
+/* -------------------------------------------------------------
+   14. メッセージ送信ロジック
+------------------------------------------------------------- */
+async function handleUserSubmit(){
+    if (window.innerWidth <= 768 && isSidebarOpen) {
+        sidebarToggleBtn.click();
+    }
+    const prompt = userInput.value.trim();
+    
+    // テキストも画像もない場合は何もしない
+    if (!prompt && currentPendingImages.length === 0) return;
+
+    const curConv = conversations.find(c=>c.id===curConvId);
+    if (!curConv) return;
+
+    const newMessage = { 
+        role: 'user', 
+        content: prompt, 
+        images: [...currentPendingImages] 
+    };
+
+    // 入力をクリア
+    userInput.value = '';
+    currentPendingImages = [];
+    renderPendingImages();
+    
+    if (editState.active){
+        const idx = editState.index;
+        curConv.messages = curConv.messages.slice(0, idx);
+        curConv.messages.push(newMessage);
+        cancelEdit();
+    }else{
+        curConv.messages.push(newMessage);
+    }
+
+    saveToStorage();
+    renderChat(curConv);
+    await streamBotResponse(curConv);
+}
+
+/* -------------------------------------------------------------
+   15. ボット応答ストリーミング (修正・補完版)
+------------------------------------------------------------- */
+let abortController = null;
+
+async function streamBotResponse(curConv) {
+    blockUI();
+
+    const row = document.createElement('div');
+    row.className = 'msg-row bot';
+    const botBubble = document.createElement('div');
+    botBubble.className = 'bubble';
+    row.appendChild(botBubble);
+    chatDiv.appendChild(row);
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+
+    const loadingSpan = document.createElement('span');
+    loadingSpan.className = 'loading';
+    botBubble.appendChild(loadingSpan);
+
+    let botContent = '';
+
+    // ① メッセージ配列の構築
+    const apiMessages = [
+        { role: "system", content: getSystemRole() }
+    ];
+
+    curConv.messages.forEach(msg => {
+        // 画像が含まれている場合、OpenAI互換のVisionフォーマット(Array)に変換
+        if (msg.images && msg.images.length > 0) {
+            let contentArray = [];
+            if (msg.content) {
+                contentArray.push({ type: "text", text: msg.content });
+            }
+            msg.images.forEach(imgBase64 => {
+                contentArray.push({
+                    type: "image_url",
+                    image_url: { url: imgBase64 }
+                });
+            });
+            apiMessages.push({ role: msg.role, content: contentArray });
+        } else {
+            apiMessages.push({ role: msg.role, content: msg.content });
+        }
+    });
+    // トリミング処理を関数化して再利用可能にする
+    const finishGeneration = () => {
+        if (loadingSpan.parentNode) loadingSpan.remove();
+
+        let trimmed = botContent;
+
+        // TRIM_TOKEN_01〜03 のトリミング処理
+        if (TRIM_TOKEN_01 && TRIM_TOKEN_01.length > 0) {
+            const idx = trimmed.lastIndexOf(TRIM_TOKEN_01);
+            if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_01.length);
+        }
+        if (TRIM_TOKEN_02 && TRIM_TOKEN_02.length > 0) {
+            const idx = trimmed.lastIndexOf(TRIM_TOKEN_02);
+            if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_02.length);
+        }
+        if (TRIM_TOKEN_03 && TRIM_TOKEN_03.length > 0) {
+            const idx = trimmed.lastIndexOf(TRIM_TOKEN_03);
+            if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_03.length);
+        }
+
+        // 最終的なHTMLを反映
+        botBubble.innerHTML = marked.parse(preprocessMarkdown(trimmed));
+        applyHighlightAndCopy(botBubble);
+        addCollapsible(botBubble);
+
+        // 保存
+        curConv.messages.push({ role: 'assistant', content: trimmed });
+        saveToStorage();
+        unblockUI();
+    };
+
+    // ② ストリーミング開始
+    try {
+        abortController = new AbortController();
+
+        const body = {
+            model: "llama", 
+            messages: apiMessages,
+            stream: true,
+            temperature: TEMPERATURE,
+            top_p: TOP_P,
+            presence_penalty: PRESENCE_PENALTY,
+            frequency_penalty: FREQUENCY_PENALTY
+        };
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: abortController.signal
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP Error! status: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let done = false;
+
+        // チャンクを処理
+        while (!done) {
+            const { value, done: readerDone } = await reader.read();
+            done = readerDone;
+            if (value) {
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+                                botContent += data.choices[0].delta.content;
+                                // リアルタイムにマークダウンを描画
+                                botBubble.innerHTML = marked.parse(preprocessMarkdown(botContent));
+                            }
+                        } catch (e) {
+                            console.error("JSON parse error on stream chunk", e);
+                        }
+                    }
+                }
+            }
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+
+        // ③ 終了後の処理
+        applyHighlightAndCopy(botBubble);
+        addCollapsible(botBubble);
+        
+        curConv.messages.push({ role: "assistant", content: botContent });
+        saveToStorage();
+
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            console.log("Fetch aborted");
+        } else {
+            console.error("Stream error:", err);
+            botBubble.innerHTML += `<br><span style="color:red;">Error: ${err.message}</span>`;
+        }
+    } finally {
+        if (loadingSpan.parentNode) {
+            loadingSpan.remove();
+        }
+        unblockUI();
+        abortController = null;
+    }
+}
+
+/* -------------------------------------------------------------
+   16. UI イベントバインド（新規追加・修正）
+------------------------------------------------------------- */
+sendBtn.addEventListener('click', handleUserSubmit);
+userInput.addEventListener('keydown', e=>{
+    if (e.key==='Enter' && !e.shiftKey){
+        e.preventDefault();
+        handleUserSubmit();
+    }
+});
+/* --- 停止ボタンのクリックイベント --- */
+stopBtn.addEventListener('click', async () => {
+    if (abortController) {
+        abortController.abort(); // ブラウザ側のFetchを中断
+    }
+    
+    // llama.cppサーバーへ停止信号を送信
+    try {
+        await fetch(STOP_API_URL, { method: 'POST' });
+    } catch (e) {
+        console.error("Stop API failed", e);
+    }
+});
+newConvBtn.addEventListener('click', createNewConversation);
+cancelEditBtn.addEventListener('click', cancelEdit);
+userInput.addEventListener('keydown', e=>{
+    if (e.key==='Escape'){
+        e.preventDefault();
+        cancelEdit();
+    }
+});
+exportBtn.addEventListener('click', exportConversations);
+importBtn.addEventListener('click', importConversations);
+
+/* ★ サイドバーの開閉機能 ★ */
+sidebarToggleBtn.addEventListener('click', () => {
+    isSidebarOpen = !isSidebarOpen;
+    if (isSidebarOpen) {
+        sidebarEl.classList.add('open');
+        bodyEl.classList.remove('sidebar-closed'); // モバイルでは全幅表示に
+    } else {
+        sidebarEl.classList.remove('open');
+        bodyEl.classList.add('sidebar-closed'); // モバイルではコンテンツが全幅になる
+    }
+    saveToStorage();
+});
+/* -------------------------------------------------------------
+   初期化処理
+------------------------------------------------------------- */
+window.addEventListener('DOMContentLoaded', () => {
+    loadFromStorage();
+    renderSidebar();
+    const cur = conversations.find(c=>c.id===curConvId);
+    renderChat(cur);
+    updateTitle();
+});
+</script>
+</body>
+</html>
