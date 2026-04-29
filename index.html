@@ -694,19 +694,14 @@ const ASSISTANT_BOS_TOKEN  = "";
 const ASSISTANT_EOS_TOKEN  = "";
 
 //* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
-const TRIM_TOKEN_01 = "</think>\n";   // 例: 「<END>」以降だけを残す
-const TRIM_TOKEN_02 = "<|end|>";   // 例: 「<END>」以降だけを残す
-const TRIM_TOKEN_03 = "<channel|>";   // 例: 「<END>」以降だけを残す
+const TRIM_TOKEN_01 = "";
+const TRIM_TOKEN_02 = "";
+const TRIM_TOKEN_03 = "";
 
 /* -------------------------------------------------------------
    1. SYSTEM_ROLE（別ファイル）
 ------------------------------------------------------------- */
-const SYSTEM_ROLE_TEMPLATE =`
-あなたは優秀なアシスタントです。
-・現在の時刻は{time}です。時刻情報が会話に必要ならこれを参照してください。
-・画像を入力されたら、ユーザーから解説を求められるまで解説をしないでください。
-`;
-
+   
 function formatNow() {
     const now = new Date();
     const y  = now.getFullYear();
