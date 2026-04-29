@@ -1501,9 +1501,13 @@ stopBtn.addEventListener('click', async () => {
     
     // llama.cppサーバーへ停止信号を送信
     try {
-        await fetch(STOP_API_URL, { method: 'POST' });
-    } catch (e) {
-        console.error("Stop API failed", e);
+        await fetch(STOP_API_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+    }catch(err){
+        console.warn('Failed to call /v1/stop on unload:', err);
     }
 });
 newConvBtn.addEventListener('click', createNewConversation);
