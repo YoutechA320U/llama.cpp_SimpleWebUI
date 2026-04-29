@@ -232,37 +232,92 @@ body{
    レスポンシブ対応：モバイルビュー (max-width: 768px)
 ------------------------------------------------------------- */
 @media (max-width: 768px) {
-    /* サイドバーをデフォルトで非表示にし、トグルで表示させる */
+    /* --- サイドバーの設定 --- */
     #sidebar {
-        position: absolute;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 260px;
         height: 100vh;
-        z-index: 50; /* メインコンテンツより手前 */
-        transform: translateX(-100%); /* 初期状態は画面外に隠す */
+        z-index: 1000;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
         box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+        border-right: none;
     }
+
     #sidebar.open {
-        transform: translateX(0); /* 開いた状態 */
-    }
-    /* モバイル時はサイドバーの幅を固定 */
-    #sidebar.collapsed {
-        width: var(--sidebar-collapsed-width);
+        transform: translateX(0);
     }
 
-    /* メインコンテンツのパディングを調整し、トグルボタンを表示 */
-    #main {
-        padding-left: 0;
-        padding-right: 0;
-    }
+    /* --- トグルボタンの表示 --- */
     #sidebar-toggle {
-        display: block; /* モバイルではトグルボタンを表示 */
+        display: flex;
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1001;
+        width: 40px;
+        height: 40px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 
-    /* サイドバーが画面外にあるとき（非表示時）は、メインコンテンツが全幅を取るように調整する */
-    body.sidebar-closed #main {
-        /* 常に全幅を使用 */
+    /* サイドバーが開いている間、メインエリアにオーバーレイ */
+    #sidebar.open ~ #main::before {
+        content: "";
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+    }
+
+    /* --- メインエリアの調整 --- */
+    #main {
         width: 100%;
+        padding: 60px 10px 20px 10px;
+        margin-left: 0;
+    }
+
+    /* 会話リストなどの幅調整 */
+    #conv-list li {
+        font-size: 0.95rem;
+        padding: 12px;
+    }
+    
+    /* ★ ここから修正部分 ★ */
+    /* 
+       input-container に sticky 属性があるため、ui-blocker (z-9999) よりも手前に
+       レイヤーが作成されてしまいます。
+       停止ボタンなどをその上に表示させるため、z-index を設定します。
+    */
+    #input-container {
+        position: sticky; /* スマホ版の既存設定を維持 */
+        bottom: 0;
+        background: #f5f5f5;
+        padding: 10px 0;
+        z-index: 2000;    /* モバイルでも最前面を維持 */
+    }
+
+    /* ★ 追加: 停止ボタンを画面最前面に配置する ★ */
+    #stop-btn {
+        z-index: 10000; /* ui-blocker (9999) よりも大きな値に設定 */
+    }
+
+    /* 追加: キャンセルボタンも同様の対策を適用（編集中にブロックされる防止） */
+    #cancel-edit-btn {
+        z-index: 10000;
+    }
+    /* ★ ここまで修正部分 ★ */
+
+    /* --- 追加：スマホ版ではアクションボタンを常に表示 --- */
+    .msg-actions {
+        opacity: 1 !important;
     }
 }
+
 
 /* -------------------------------------------------------------
    2. チャット領域
@@ -424,6 +479,8 @@ body{
     display: flex;
     flex-direction: column;
     margin-top: 12px;
+    position: relative; /* z-indexを有効にするために必要 */
+    z-index: 2000;      /* ハンバーガー(1001)やブロッカー(500)よりも高い値に設定 */
 }
 /* ★ 画像プレビューエリア ★ */
 #image-preview-area {
@@ -502,11 +559,6 @@ body{
     display: none; /* 通常時は非表示 */
 }
 
-/* UIブロック中でも停止ボタンだけはクリック可能にする */
-#stop-btn:not(:disabled) {
-    position: relative;
-    z-index: 10000; /* ui-blocker(9999) より前面へ */
-}
 /* キャンセルボタン（編集中だけ表示） */
 #cancel-edit-btn{
     padding:10px 16px;
@@ -544,9 +596,9 @@ body{
     position:fixed;
     top:0; left:0;
     width:100%; height:100%;
-    background:transparent; /* ★ 背景を完全に透明にする ★ */
-    z-index:9999;
-    display:none;   /* デフォルト非表示 */
+    background:transparent;
+    z-index: 500; /* 100以下の値に変更し、入力エリア(z-index:100)より下に配置 */
+    display:none;
 }
 /* -------------------------------------------------------------
    6‑1. サイドバーがロック中の見た目
@@ -622,8 +674,8 @@ marked.setOptions({
 /* -------------------------------------------------------------
    0. 定数・ストレージキー
 ------------------------------------------------------------- */
-const API_URL          = "http://localhost:8080/v1/chat/completions";
-const STOP_API_URL     = "http://localhost:8080/v1/stop";
+const API_URL          = "http://192.168.1.101:8080/v1/chat/completions";
+const STOP_API_URL     = "http://192.168.1.101:8080/v1/stop";
 const STORAGE_KEY      = "llm_conversations";
 const SIDEBAR_STATE_KEY = "sidebar_open"; // サイドバーの状態を保存するキー
 
@@ -649,7 +701,11 @@ const TRIM_TOKEN_03 = "<channel|>";   // 例: 「<END>」以降だけを残す
 /* -------------------------------------------------------------
    1. SYSTEM_ROLE（別ファイル）
 ------------------------------------------------------------- */
-
+const SYSTEM_ROLE_TEMPLATE =`
+あなたは優秀なアシスタントです。
+・現在の時刻は{time}です。時刻情報が会話に必要ならこれを参照してください。
+・画像を入力されたら、ユーザーから解説を求められるまで解説をしないでください。
+`;
 
 function formatNow() {
     const now = new Date();
@@ -697,23 +753,35 @@ const imagePreviewArea  = document.getElementById('image-preview-area');
 function blockUI(){
     uiBlocker.style.display = 'block';
     userInput.disabled = true;
-    sendBtn.style.display = 'none';      // 送信ボタンを隠す
-    stopBtn.style.display = 'inline-block'; // 停止ボタンを出す
+    sendBtn.style.display = 'none';
+    stopBtn.style.display = 'inline-block';
     cancelEditBtn.disabled = true;
     newConvBtn.disabled    = true;
     attachImgBtn.disabled  = true;
+    
+    // サイドバー本体をロック
     sidebarEl.classList.add('locked');
+    
+    // ★ 追加: ハンバーガーメニュー自体もクリックできないようにする
+    sidebarToggleBtn.style.pointerEvents = 'none';
 }
+
 function unblockUI(){
     uiBlocker.style.display = 'none';
     userInput.disabled = false;
-    sendBtn.style.display = 'inline-block'; // 送信ボタンを戻す
-    stopBtn.style.display = 'none';      // 停止ボタンを隠す
+    sendBtn.style.display = 'inline-block';
+    stopBtn.style.display = 'none';
     cancelEditBtn.disabled = false;
     newConvBtn.disabled    = false;
     attachImgBtn.disabled  = false;
+    
+    // サイドバーのロック解除
     sidebarEl.classList.remove('locked');
+    
+    // ★ 追加: ハンバーガーメニューのクリックを再度有効にする
+    sidebarToggleBtn.style.pointerEvents = 'auto';
 }
+
 
 /* -------------------------------------------------------------
    4. データ構造と状態管理
@@ -1523,15 +1591,37 @@ importBtn.addEventListener('click', importConversations);
 
 /* ★ サイドバーの開閉機能 ★ */
 sidebarToggleBtn.addEventListener('click', () => {
-    isSidebarOpen = !isSidebarOpen;
-    if (isSidebarOpen) {
-        sidebarEl.classList.add('open');
-        bodyEl.classList.remove('sidebar-closed'); // モバイルでは全幅表示に
-    } else {
-        sidebarEl.classList.remove('open');
-        bodyEl.classList.add('sidebar-closed'); // モバイルではコンテンツが全幅になる
-    }
+    // クラスのトグル（あるなら消す、無ければ付ける）
+    sidebarEl.classList.toggle('open');
+    
+    // 状態変数の更新
+    isSidebarOpen = sidebarEl.classList.contains('open');
+    
+    // 状態を保存
     saveToStorage();
+
+    // ※ 念のため body クラスも管理しておくと安心ですが、上記CSSでは #sidebar.open を基準にしているので必須ではありません
+    if (isSidebarOpen) {
+        bodyEl.classList.remove('sidebar-closed');
+    } else {
+        bodyEl.classList.add('sidebar-closed');
+    }
+});
+
+// 追加：モバイルでサイドバーが開いている状態で、メイン画面（会話エリア）をタップしたら閉じる処理
+// これがないと、一度開くと閉じにくくなるためUX向上のために推奨します。
+document.addEventListener('click', (e) => {
+    // 768px以下で、サイドバーが開いており、かつクリック箇所がサイドバーでもトグルボタンでもない場合
+    if (window.innerWidth <= 768 && 
+        sidebarEl.classList.contains('open') && 
+        !sidebarEl.contains(e.target) && 
+        e.target !== sidebarToggleBtn) {
+        
+        sidebarEl.classList.remove('open');
+        isSidebarOpen = false;
+        bodyEl.classList.add('sidebar-closed');
+        saveToStorage();
+    }
 });
 /* -------------------------------------------------------------
    初期化処理
