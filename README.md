@@ -51,7 +51,7 @@
 
 `SYSTEM_ROLE_TEMPLATE.js` を変更することで、システムプロンプトを調整できます。
 
-## 　技術スタック
+##　技術スタック
 
 - **Frontend**: HTML5, CSS3, JavaScript (Vanilla JS)
 - **Markdown Parser**: [marked.js](https://marked.js.org/)
