@@ -1,7 +1,7 @@
-# llama.cpp Simple WebUI (Multimodal)
+# llama.cpp_SimpleWebUI
 
-![Picture](https://github.com/YoutechA320U/llama.cpp_Simple WebUI_(Multimodal)/blob/master/image/image01.png "UIイメージ") 
-![Picture](https://github.com/YoutechA320U/llama.cpp_Simple WebUI_(Multimodal)/blob/master/image/image02.png "UIイメージ") 
+![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image01.png "UIイメージ") 
+![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image02.png "UIイメージ") 
 
 `llama.cpp` のサーバー機能など（OpenAI互換API）を利用して、ブラウザから簡単にLLMと対話できる軽量なWebUIです。
 マルチモーダル対応（画像入力）および会話履歴の保存機能を備えており、シングルHTMLファイルで動作します。
