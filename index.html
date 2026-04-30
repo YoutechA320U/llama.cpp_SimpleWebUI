@@ -270,8 +270,6 @@ body{
         content: "";
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.5);
-        z-index: 999;
     }
 
     /* --- メインエリアの調整 --- */
@@ -279,6 +277,7 @@ body{
         width: 100%;
         padding: 60px 10px 20px 10px;
         margin-left: 0;
+        z-index: 999;
     }
 
     /* 会話リストなどの幅調整 */
@@ -294,25 +293,16 @@ body{
        停止ボタンなどをその上に表示させるため、z-index を設定します。
     */
     #input-container {
-        position: sticky; /* スマホ版の既存設定を維持 */
+        position: relative; /* スマホ版の既存設定を維持 */
         bottom: 0;
         background: #f5f5f5;
-        padding: 10px 0;
-        z-index: 2000;    /* モバイルでも最前面を維持 */
+        padding: 0px 0px 40px 0px ;
     }
 
     /* ★ 追加: 停止ボタンを画面最前面に配置する ★ */
     #stop-btn {
         z-index: 10000; /* ui-blocker (9999) よりも大きな値に設定 */
     }
-
-    /* 追加: キャンセルボタンも同様の対策を適用（編集中にブロックされる防止） */
-    #cancel-edit-btn {
-        z-index: 10000;
-    }
-    /* ★ ここまで修正部分 ★ */
-
-    /* --- 追加：スマホ版ではアクションボタンを常に表示 --- */
     .msg-actions {
         opacity: 1 !important;
     }
@@ -478,7 +468,6 @@ body{
 #input-container {
     display: flex;
     flex-direction: column;
-    margin-top: 12px;
     position: relative; /* z-indexを有効にするために必要 */
     z-index: 2000;      /* ハンバーガー(1001)やブロッカー(500)よりも高い値に設定 */
 }
@@ -693,10 +682,14 @@ const USER_EOS_TOKEN       = "";
 const ASSISTANT_BOS_TOKEN  = "";
 const ASSISTANT_EOS_TOKEN  = "";
 
+// スクロール制御用フラグ
+let shouldAutoScroll = true;
+let isUserScrolling = false;
+
 //* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
-const TRIM_TOKEN_01 = "</think>\n";   // 例: 「<END>」以降だけを残す
-const TRIM_TOKEN_02 = "<|end|>";   // 例: 「<END>」以降だけを残す
-const TRIM_TOKEN_03 = "<channel|>";   // 例: 「<END>」以降だけを残す
+const TRIM_TOKEN_01 = "";   // 例: 「<END>」以降だけを残す
+const TRIM_TOKEN_02 = "";   // 例: 「<END>」以降だけを残す
+const TRIM_TOKEN_03 = "";   // 例: 「<END>」以降だけを残す
 
 /* -------------------------------------------------------------
    1. SYSTEM_ROLE（別ファイル）
@@ -704,7 +697,7 @@ const TRIM_TOKEN_03 = "<channel|>";   // 例: 「<END>」以降だけを残す
 const SYSTEM_ROLE_TEMPLATE =`
 あなたは優秀なアシスタントです。
 ・現在の時刻は{time}です。時刻情報が会話に必要ならこれを参照してください。
-・画像を入力されたら、ユーザーから解説を求められるまで解説をしないでください。
+・画像を入力されたら、ユーザーから解説を求められるまで画像の解説をしないでください。
 `;
 
 function formatNow() {
@@ -752,17 +745,18 @@ const imagePreviewArea  = document.getElementById('image-preview-area');
 ------------------------------------------------------------- */
 function blockUI(){
     uiBlocker.style.display = 'block';
+    uiBlocker.style.pointerEvents = 'none';
     userInput.disabled = true;
     sendBtn.style.display = 'none';
     stopBtn.style.display = 'inline-block';
     cancelEditBtn.disabled = true;
     newConvBtn.disabled    = true;
     attachImgBtn.disabled  = true;
-    
+
     // サイドバー本体をロック
     sidebarEl.classList.add('locked');
     
-    // ★ 追加: ハンバーガーメニュー自体もクリックできないようにする
+    // ハンバーガーメニュー自体もクリックできないようにする
     sidebarToggleBtn.style.pointerEvents = 'none';
 }
 
@@ -1281,6 +1275,7 @@ function renderChat(conv){
         addCollapsible(bubble);
 
         if (isUser) {
+            
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'msg-actions';
 
@@ -1288,13 +1283,21 @@ function renderChat(conv){
             editBtn.className = 'action-btn';
             editBtn.textContent = '✒';
             editBtn.title = '編集する';
-            editBtn.onclick = () => onEditMessage(index);
+            editBtn.onclick = () => {
+                // 【追加】UIがロックされていたら実行しない
+                if (uiBlocker.style.display === 'block') return; 
+                onEditMessage(index);
+            };
 
             const rerunBtn = document.createElement('button');
             rerunBtn.className = 'action-btn';
             rerunBtn.textContent = '🔁';
             rerunBtn.title = 'ここから再生成';
-            rerunBtn.onclick = () => onRerunMessage(index);
+            rerunBtn.onclick = () => {
+                // 【追加】UIがロックされていたら実行しない
+                if (uiBlocker.style.display === 'block') return;
+                onRerunMessage(index);
+            };
 
             actionsDiv.appendChild(rerunBtn);
             actionsDiv.appendChild(editBtn);
@@ -1344,6 +1347,13 @@ function onRerunMessage(index) {
 }
 
 cancelEditBtn.addEventListener('click', cancelEdit);
+userInput.addEventListener('keydown', e=>{
+    if (e.key==='Escape'){
+        e.preventDefault();
+        cancelEdit();
+    }
+});
+
 /* -------------------------------------------------------------
    13. 編集キャンセルロジック
 ------------------------------------------------------------- */
@@ -1525,7 +1535,9 @@ async function streamBotResponse(curConv) {
                     }
                 }
             }
-            chatDiv.scrollTop = chatDiv.scrollHeight;
+            if (shouldAutoScroll) {
+                chatDiv.scrollTop = chatDiv.scrollHeight;
+            }
         }
 
         // ③ 終了後の処理
@@ -1538,6 +1550,39 @@ async function streamBotResponse(curConv) {
     } catch (err) {
         if (err.name === 'AbortError') {
             console.log("Fetch aborted");
+            
+            // ★ 追加: 停止ボタンを押した際（中断時）の処理
+            // ローディングインジケータを削除
+            if (loadingSpan.parentNode) loadingSpan.remove();
+
+            // 現在のbotContentを加工・保存
+            let trimmed = botContent;
+
+            // TRIM_TOKEN_01〜03 のトリミング処理（finishGenerationと同じロジック）
+            if (TRIM_TOKEN_01 && TRIM_TOKEN_01.length > 0) {
+                const idx = trimmed.lastIndexOf(TRIM_TOKEN_01);
+                if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_01.length);
+            }
+            if (TRIM_TOKEN_02 && TRIM_TOKEN_02.length > 0) {
+                const idx = trimmed.lastIndexOf(TRIM_TOKEN_02);
+                if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_02.length);
+            }
+            if (TRIM_TOKEN_03 && TRIM_TOKEN_03.length > 0) {
+                const idx = trimmed.lastIndexOf(TRIM_TOKEN_03);
+                if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_03.length);
+            }
+
+            // 最終的なHTMLを反映
+            botBubble.innerHTML = marked.parse(preprocessMarkdown(trimmed));
+            applyHighlightAndCopy(botBubble);
+            addCollapsible(botBubble);
+
+            // 会話履歴に追加して保存
+            curConv.messages.push({ role: 'assistant', content: trimmed });
+            saveToStorage();
+            
+            // UIは finally で unblockUI が呼ばれるため、ここでは呼び出さない
+
         } else {
             console.error("Stream error:", err);
             botBubble.innerHTML += `<br><span style="color:red;">Error: ${err.message}</span>`;
@@ -1561,6 +1606,26 @@ userInput.addEventListener('keydown', e=>{
         handleUserSubmit();
     }
 });
+/* -------------------------------------------------------------
+   17. ページ離脱（リロード・閉じる）時に /v1/stop を呼び出す
+------------------------------------------------------------- */
+window.addEventListener('beforeunload', async (e) => {
+    // 1️⃣ 可能なら streaming を abort
+    if (abortController){
+        abortController.abort();          // fetch の中断
+    }
+
+    // 2️⃣ LLM に対して明示的に stop 要求を送信
+    try{
+        await fetch(STOP_API_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+    }catch(err){
+        console.warn('Failed to call /v1/stop on unload:', err);
+    }
+});
 /* --- 停止ボタンのクリックイベント --- */
 stopBtn.addEventListener('click', async () => {
     if (abortController) {
@@ -1579,13 +1644,7 @@ stopBtn.addEventListener('click', async () => {
     }
 });
 newConvBtn.addEventListener('click', createNewConversation);
-cancelEditBtn.addEventListener('click', cancelEdit);
-userInput.addEventListener('keydown', e=>{
-    if (e.key==='Escape'){
-        e.preventDefault();
-        cancelEdit();
-    }
-});
+
 exportBtn.addEventListener('click', exportConversations);
 importBtn.addEventListener('click', importConversations);
 
@@ -1621,6 +1680,21 @@ document.addEventListener('click', (e) => {
         isSidebarOpen = false;
         bodyEl.classList.add('sidebar-closed');
         saveToStorage();
+    }
+});
+/* ★ 追加: スクロール制御ロジック ★ */
+chatDiv.addEventListener('scroll', () => {
+    // スクロール位置が最下部から20px以内であれば、自動スクロールを有効にする
+    const threshold = 20;
+    const isBottom = chatDiv.scrollHeight - chatDiv.scrollTop - chatDiv.clientHeight <= threshold;
+    
+    if (isBottom) {
+        shouldAutoScroll = true;
+        isUserScrolling = false;
+    } else {
+        // スクロール位置が上にある場合、自動スクロールを停止（ユーザーが読み込んでいると判断）
+        shouldAutoScroll = false;
+        isUserScrolling = true;
     }
 });
 /* -------------------------------------------------------------
