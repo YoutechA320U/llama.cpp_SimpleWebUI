@@ -48,8 +48,8 @@ body{
     font-family: Helvetica,Arial,sans-serif;
     background:#f5f5f5;
     display:flex;
-    height:100vh;
-    overflow:hidden; /* 全体のスクロールを制御 */
+    height: 100vh ;
+    overflow: auto; 
     transition: all 0.3s ease;
 }
 
@@ -157,7 +157,7 @@ body{
     color:#900;
 }
 
-/* ★ 追加 ★ 名前編集ボタン */
+/* 名前編集ボタン */
 .edit-btn{
     background:none;
     border:none;
@@ -228,86 +228,6 @@ body{
     color:#555;
     margin-left:0.8rem;
 }
-/* -------------------------------------------------------------
-   レスポンシブ対応：モバイルビュー (max-width: 768px)
-------------------------------------------------------------- */
-@media (max-width: 768px) {
-    /* --- サイドバーの設定 --- */
-    #sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 260px;
-        height: 100vh;
-        z-index: 1000;
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
-        box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-        border-right: none;
-    }
-
-    #sidebar.open {
-        transform: translateX(0);
-    }
-
-    /* --- トグルボタンの表示 --- */
-    #sidebar-toggle {
-        display: flex;
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        z-index: 1001;
-        width: 40px;
-        height: 40px;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-
-    /* サイドバーが開いている間、メインエリアにオーバーレイ */
-    #sidebar.open ~ #main::before {
-        content: "";
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-    }
-
-    /* --- メインエリアの調整 --- */
-    #main {
-        width: 100%;
-        padding: 60px 10px 20px 10px;
-        margin-left: 0;
-        z-index: 999;
-    }
-
-    /* 会話リストなどの幅調整 */
-    #conv-list li {
-        font-size: 0.95rem;
-        padding: 12px;
-    }
-    
-    /* ★ ここから修正部分 ★ */
-    /* 
-       input-container に sticky 属性があるため、ui-blocker (z-9999) よりも手前に
-       レイヤーが作成されてしまいます。
-       停止ボタンなどをその上に表示させるため、z-index を設定します。
-    */
-    #input-container {
-        position: relative; /* スマホ版の既存設定を維持 */
-        bottom: 0;
-        background: #f5f5f5;
-        padding: 0px 0px 40px 0px ;
-    }
-
-    /* ★ 追加: 停止ボタンを画面最前面に配置する ★ */
-    #stop-btn {
-        z-index: 10000; /* ui-blocker (9999) よりも大きな値に設定 */
-    }
-    .msg-actions {
-        opacity: 1 !important;
-    }
-}
-
 
 /* -------------------------------------------------------------
    2. チャット領域
@@ -620,9 +540,6 @@ marked.setOptions({
 </head>
 <body class="sidebar-closed">
 
-<!-- サイドバーのトグルボタン (モバイル用) -->
-<button id="sidebar-toggle">☰</button>
-
 <div id="sidebar">
     <h3 id="sidebar-header">会話履歴</h3>
     <ul id="conv-list"></ul>
@@ -687,9 +604,9 @@ let shouldAutoScroll = true;
 let isUserScrolling = false;
 
 //* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
-const TRIM_TOKEN_01 = "";   // 例: 「<END>」以降だけを残す
-const TRIM_TOKEN_02 = "";   // 例: 「<END>」以降だけを残す
-const TRIM_TOKEN_03 = "";   // 例: 「<END>」以降だけを残す
+const TRIM_TOKEN_01 = "";
+const TRIM_TOKEN_02 = "";
+const TRIM_TOKEN_03 = "";
 
 /* -------------------------------------------------------------
    1. SYSTEM_ROLE（別ファイル）
@@ -756,8 +673,6 @@ function blockUI(){
     // サイドバー本体をロック
     sidebarEl.classList.add('locked');
     
-    // ハンバーガーメニュー自体もクリックできないようにする
-    sidebarToggleBtn.style.pointerEvents = 'none';
 }
 
 function unblockUI(){
@@ -772,10 +687,7 @@ function unblockUI(){
     // サイドバーのロック解除
     sidebarEl.classList.remove('locked');
     
-    // ★ 追加: ハンバーガーメニューのクリックを再度有効にする
-    sidebarToggleBtn.style.pointerEvents = 'auto';
 }
-
 
 /* -------------------------------------------------------------
    4. データ構造と状態管理
@@ -872,7 +784,7 @@ function renderPendingImages() {
     });
 }
 /* -------------------------------------------------------------
-   4-2. ペースト・ドラッグアンドドロップ処理 (追加)
+   4-2. ペースト・ドラッグアンドドロップ処理
 ------------------------------------------------------------- */
 
 // --- ペーストイベント (Ctrl+V) ---
@@ -1284,7 +1196,7 @@ function renderChat(conv){
             editBtn.textContent = '✒';
             editBtn.title = '編集する';
             editBtn.onclick = () => {
-                // 【追加】UIがロックされていたら実行しない
+                // UIがロックされていたら実行しない
                 if (uiBlocker.style.display === 'block') return; 
                 onEditMessage(index);
             };
@@ -1294,7 +1206,7 @@ function renderChat(conv){
             rerunBtn.textContent = '🔁';
             rerunBtn.title = 'ここから再生成';
             rerunBtn.onclick = () => {
-                // 【追加】UIがロックされていたら実行しない
+                // UIがロックされていたら実行しない
                 if (uiBlocker.style.display === 'block') return;
                 onRerunMessage(index);
             };
@@ -1333,9 +1245,6 @@ function onEditMessage(index) {
 }
 
 function onRerunMessage(index) {
-    if (window.innerWidth <= 768 && isSidebarOpen) {
-        sidebarToggleBtn.click();
-    }
     cancelEdit();
     const curConv = conversations.find(c => c.id === curConvId);
     if (!curConv) return;
@@ -1371,9 +1280,6 @@ function cancelEdit(){
    14. メッセージ送信ロジック
 ------------------------------------------------------------- */
 async function handleUserSubmit(){
-    if (window.innerWidth <= 768 && isSidebarOpen) {
-        sidebarToggleBtn.click();
-    }
     const prompt = userInput.value.trim();
     
     // テキストも画像もない場合は何もしない
@@ -1521,6 +1427,12 @@ async function streamBotResponse(curConv) {
                 const lines = chunk.split('\n');
                 
                 for (const line of lines) {
+                    // [DONE] 検出時に finishGeneration() を呼び出し、ループを抜ける
+                    if (line === 'data: [DONE]') {
+                        finishGeneration();
+                        return;
+                    }
+
                     if (line.startsWith('data: ') && line !== 'data: [DONE]') {
                         try {
                             const data = JSON.parse(line.substring(6));
@@ -1540,6 +1452,7 @@ async function streamBotResponse(curConv) {
             }
         }
 
+
         // ③ 終了後の処理
         applyHighlightAndCopy(botBubble);
         addCollapsible(botBubble);
@@ -1551,7 +1464,7 @@ async function streamBotResponse(curConv) {
         if (err.name === 'AbortError') {
             console.log("Fetch aborted");
             
-            // ★ 追加: 停止ボタンを押した際（中断時）の処理
+            // 停止ボタンを押した際（中断時）の処理
             // ローディングインジケータを削除
             if (loadingSpan.parentNode) loadingSpan.remove();
 
@@ -1597,7 +1510,7 @@ async function streamBotResponse(curConv) {
 }
 
 /* -------------------------------------------------------------
-   16. UI イベントバインド（新規追加・修正）
+   16. UI イベントバインド
 ------------------------------------------------------------- */
 sendBtn.addEventListener('click', handleUserSubmit);
 userInput.addEventListener('keydown', e=>{
@@ -1605,6 +1518,13 @@ userInput.addEventListener('keydown', e=>{
         e.preventDefault();
         handleUserSubmit();
     }
+});
+/* キーボード表示時などにスクロール位置を調整する */
+userInput.addEventListener('focus', () => {
+    // 短時間の遅延を入れて、ブラウザのアニメーション後にスクロール
+    setTimeout(() => {
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+    }, 100);
 });
 /* -------------------------------------------------------------
    17. ページ離脱（リロード・閉じる）時に /v1/stop を呼び出す
@@ -1648,41 +1568,9 @@ newConvBtn.addEventListener('click', createNewConversation);
 exportBtn.addEventListener('click', exportConversations);
 importBtn.addEventListener('click', importConversations);
 
-/* ★ サイドバーの開閉機能 ★ */
-sidebarToggleBtn.addEventListener('click', () => {
-    // クラスのトグル（あるなら消す、無ければ付ける）
-    sidebarEl.classList.toggle('open');
-    
-    // 状態変数の更新
-    isSidebarOpen = sidebarEl.classList.contains('open');
-    
-    // 状態を保存
-    saveToStorage();
 
-    // ※ 念のため body クラスも管理しておくと安心ですが、上記CSSでは #sidebar.open を基準にしているので必須ではありません
-    if (isSidebarOpen) {
-        bodyEl.classList.remove('sidebar-closed');
-    } else {
-        bodyEl.classList.add('sidebar-closed');
-    }
-});
 
-// 追加：モバイルでサイドバーが開いている状態で、メイン画面（会話エリア）をタップしたら閉じる処理
-// これがないと、一度開くと閉じにくくなるためUX向上のために推奨します。
-document.addEventListener('click', (e) => {
-    // 768px以下で、サイドバーが開いており、かつクリック箇所がサイドバーでもトグルボタンでもない場合
-    if (window.innerWidth <= 768 && 
-        sidebarEl.classList.contains('open') && 
-        !sidebarEl.contains(e.target) && 
-        e.target !== sidebarToggleBtn) {
-        
-        sidebarEl.classList.remove('open');
-        isSidebarOpen = false;
-        bodyEl.classList.add('sidebar-closed');
-        saveToStorage();
-    }
-});
-/* ★ 追加: スクロール制御ロジック ★ */
+/* スクロール制御ロジック */
 chatDiv.addEventListener('scroll', () => {
     // スクロール位置が最下部から20px以内であれば、自動スクロールを有効にする
     const threshold = 20;
@@ -1710,4 +1598,3 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
