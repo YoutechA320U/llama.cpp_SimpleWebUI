@@ -676,8 +676,8 @@ marked.setOptions({
 /* -------------------------------------------------------------
    0. 定数・ストレージキー
 ------------------------------------------------------------- */
-const API_URL          = "http://192.168.1.101:8080/v1/chat/completions";
-const STOP_API_URL     = "http://192.168.1.101:8080/v1/stop";
+const API_URL          = "http://localhost:8080/v1/chat/completions";
+const STOP_API_URL     = "http://localhost:8080/v1/stop";
 const STORAGE_KEY      = "llm_conversations";
 const SIDEBAR_STATE_KEY = "sidebar_open"; // サイドバーの状態を保存するキー
 
@@ -700,9 +700,9 @@ let shouldAutoScroll = true;
 let isUserScrolling = false;
 
 //* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
-const TRIM_TOKEN_01 = "</think>\n";
-const TRIM_TOKEN_02 = "<|end|>";
-const TRIM_TOKEN_03 = "<channel|>";
+const TRIM_TOKEN_01 = "";
+const TRIM_TOKEN_02 = "";
+const TRIM_TOKEN_03 = "";
 
 /* -------------------------------------------------------------
    1. SYSTEM_ROLE（別ファイル）
