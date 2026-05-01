@@ -63,32 +63,35 @@ body{
     font-size: 0.9rem;
     transition: width 0.3s ease;
     flex-shrink: 0; /* サイズが縮まないようにする */
+    position: relative;
 }
 
 #sidebar.collapsed {
     width: var(--sidebar-collapsed-width);
 }
 
-/* サイドバーが畳まれた状態のスタイル */
-#sidebar.collapsed {
-    width: var(--sidebar-collapsed-width);
-}
-
-/* サイドバーのトグルボタン（モバイルでのみ表示） */
+/* サイドバーのトグルボタン */
 #sidebar-toggle {
-    display: none; /* デフォルトでは非表示 */
-    align-self: flex-end;
-    padding: 8px;
-    background: #fff;
-    border: 1px solid #ddd;
+    background: none;
+    border: none;
+    font-size: 1.3rem;
     cursor: pointer;
-    font-size: 1.2rem;
-    z-index: 100; /* 他の要素より前面に出す */
+    padding: 12px 16px;
+    color: #333;
+    transition: color 0.2s, opacity 0.2s;
+    flex-shrink: 0;
+}
+#sidebar-toggle:hover {
+    color: #1976d2;
+}
+#sidebar.collapsed #sidebar-toggle {
+    text-align: center;
+    padding: 12px 0;
 }
 
 #sidebar h3{
     margin:0;
-    padding:12px 16px;
+    padding:0 16px 12px;
     background:#f0f0f0;
     font-size:1.0rem;
     border-bottom:1px solid #ddd;
@@ -520,6 +523,95 @@ body{
     /* スムーズに変化させる */
     transition: opacity 0.2s ease;
 }
+
+/* -------------------------------------------------------------
+   レスポンシブ対応
+------------------------------------------------------------- */
+/* モバイル（768px以下） */
+@media (max-width: 768px) {
+    #sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        z-index: 9000;
+        transition: transform 0.3s ease;
+    }
+    
+    /* サイドバーが開いている場合 */
+    #sidebar:not(.collapsed) {
+        transform: translateX(0);
+    }
+    
+    /* サイドバーが閉じている場合 */
+    #sidebar.collapsed {
+        transform: translateX(-100%);
+        width: var(--sidebar-width);
+    }
+    
+    /* モバイルでのハンバーガーボタン表示 */
+    #sidebar-toggle {
+        display: block;
+    }
+    
+    /* モバイルでサイドバーが開いている時にメインエリアをシフト */
+    body:not(.sidebar-closed) #main {
+        margin-left: 0;
+    }
+    
+    /* モバイルでサイドバーが閉じている時にハンバーガーボタンを画面左に表示 */
+    body.sidebar-closed #sidebar-toggle-mobile {
+        display: block;
+    }
+}
+
+/* デスクトップ（769px以上） */
+@media (min-width: 769px) {
+    #sidebar-toggle {
+        display: block;
+    }
+    
+    /* サイドバー本体を完全に隠す（幅0） */
+    body.sidebar-closed #sidebar {
+        width: 0 !important;
+        min-width: 0;
+        overflow: hidden;
+        border-right: none;
+    }
+    
+    /* ハンバーガーボタンだけは画面左上に固定表示（開閉切り替え用） */
+    body.sidebar-closed #sidebar-toggle {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: auto;
+        padding: 12px 16px;
+        background: #fff;
+        border-right: 1px solid #ddd;
+        z-index: 1002;
+        box-sizing: border-box;
+    }
+}
+
+
+/* モバイル用ハンバーガーボタン（サイドバー外） */
+#sidebar-toggle-mobile {
+    display: none;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 999;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1.3rem;
+    padding: 6px 10px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+#sidebar-toggle-mobile:hover {
+    background: #f0f0f0;
+}
 </style>
 
 <!-- ★ Markdown パーサ (marked.js) を CDN から読み込み -->
@@ -540,7 +632,11 @@ marked.setOptions({
 </head>
 <body class="sidebar-closed">
 
+<!-- モバイル用ハンバーガーボタン（サイドバー外） -->
+<button id="sidebar-toggle-mobile">☰</button>
+
 <div id="sidebar">
+    <button id="sidebar-toggle" title="サイドバーを開閉">☰</button>
     <h3 id="sidebar-header">会話履歴</h3>
     <ul id="conv-list"></ul>
     <button id="new-conv">＋ 新しい会話</button>
@@ -580,8 +676,8 @@ marked.setOptions({
 /* -------------------------------------------------------------
    0. 定数・ストレージキー
 ------------------------------------------------------------- */
-const API_URL          = "http://localhost:8080/v1/chat/completions";
-const STOP_API_URL     = "http://localhost:8080/v1/stop";
+const API_URL          = "http://192.168.1.101:8080/v1/chat/completions";
+const STOP_API_URL     = "http://192.168.1.101:8080/v1/stop";
 const STORAGE_KEY      = "llm_conversations";
 const SIDEBAR_STATE_KEY = "sidebar_open"; // サイドバーの状態を保存するキー
 
@@ -604,9 +700,9 @@ let shouldAutoScroll = true;
 let isUserScrolling = false;
 
 //* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
-const TRIM_TOKEN_01 = "";
-const TRIM_TOKEN_02 = "";
-const TRIM_TOKEN_03 = "";
+const TRIM_TOKEN_01 = "</think>\n";
+const TRIM_TOKEN_02 = "<|end|>";
+const TRIM_TOKEN_03 = "<channel|>";
 
 /* -------------------------------------------------------------
    1. SYSTEM_ROLE（別ファイル）
@@ -645,6 +741,7 @@ const convTitleEl       = document.getElementById('conv-title');
 const uiBlocker         = document.getElementById('ui-blocker');
 const sidebarEl         = document.getElementById('sidebar');
 const sidebarToggleBtn  = document.getElementById('sidebar-toggle');
+const sidebarToggleMobileBtn = document.getElementById('sidebar-toggle-mobile');
 const bodyEl            = document.body;
 
 /* エクスポート / インポート用要素 */
@@ -669,6 +766,8 @@ function blockUI(){
     cancelEditBtn.disabled = true;
     newConvBtn.disabled    = true;
     attachImgBtn.disabled  = true;
+    sidebarToggleBtn.disabled  = true;
+    sidebarToggleMobileBtn.disabled  = true;
 
     // サイドバー本体をロック
     sidebarEl.classList.add('locked');
@@ -683,7 +782,9 @@ function unblockUI(){
     cancelEditBtn.disabled = false;
     newConvBtn.disabled    = false;
     attachImgBtn.disabled  = false;
-    
+    sidebarToggleBtn.disabled  = false;
+    sidebarToggleMobileBtn.disabled  = false;
+
     // サイドバーのロック解除
     sidebarEl.classList.remove('locked');
     
@@ -730,8 +831,8 @@ function resizeImage(dataUrl) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-            const maxWidth = 400;
-            const maxHeight = 400;
+            const maxWidth = 720;//SD画質
+            const maxHeight = 480;
 
             let width = img.width;
             let height = img.height;
@@ -845,9 +946,7 @@ function loadFromStorage(){
             conversations = [];
         }
     }
-    if (conversations.length===0) createNewConversation();
-
-    const savedCur = localStorage.getItem(STORAGE_KEY+"_cur");
+    if (conversations.length===0) createNewConversation();    const savedCur = localStorage.getItem(STORAGE_KEY+"_cur");
     if (savedCur && conversations.find(c=>c.id===savedCur)){
         curConvId = savedCur;
     }else{
@@ -1427,7 +1526,7 @@ async function streamBotResponse(curConv) {
                 const lines = chunk.split('\n');
                 
                 for (const line of lines) {
-                    // [DONE] 検出時に finishGeneration() を呼び出し、ループを抜ける
+                    // ★ 追加: [DONE] 検出時に finishGeneration() を呼び出し、ループを抜ける
                     if (line === 'data: [DONE]') {
                         finishGeneration();
                         return;
@@ -1526,6 +1625,34 @@ userInput.addEventListener('focus', () => {
         chatDiv.scrollTop = chatDiv.scrollHeight;
     }, 100);
 });
+
+/* -------------------------------------------------------------
+   サイドバーのトグル機能
+------------------------------------------------------------- */
+function toggleSidebar() {
+    isSidebarOpen = !isSidebarOpen;
+    sidebarEl.classList.toggle('collapsed', !isSidebarOpen);
+    bodyEl.classList.toggle('sidebar-closed', !isSidebarOpen);
+    saveToStorage();
+}
+
+// サイドバー内のハンバーガーボタン
+sidebarToggleBtn.addEventListener('click', toggleSidebar);
+
+// モバイル用ハンバーガーボタン（サイドバー外）
+sidebarToggleMobileBtn.addEventListener('click', () => {
+    // モバイルではサイドバーを開く
+    if (isSidebarOpen) {
+        // 既に開いている場合は閉じる（通常のトグル動作）
+        toggleSidebar();
+    } else {
+        isSidebarOpen = true;
+        sidebarEl.classList.remove('collapsed');
+        bodyEl.classList.remove('sidebar-closed');
+        saveToStorage();
+    }
+});
+
 /* -------------------------------------------------------------
    17. ページ離脱（リロード・閉じる）時に /v1/stop を呼び出す
 ------------------------------------------------------------- */
@@ -1570,7 +1697,7 @@ importBtn.addEventListener('click', importConversations);
 
 
 
-/* スクロール制御ロジック */
+/* スクロール制御ロジック ★ */
 chatDiv.addEventListener('scroll', () => {
     // スクロール位置が最下部から20px以内であれば、自動スクロールを有効にする
     const threshold = 20;
@@ -1590,6 +1717,16 @@ chatDiv.addEventListener('scroll', () => {
 ------------------------------------------------------------- */
 window.addEventListener('DOMContentLoaded', () => {
     loadFromStorage();
+    
+    // サイドバーの状態を適用
+    if (isSidebarOpen) {
+        sidebarEl.classList.remove('collapsed');
+        bodyEl.classList.remove('sidebar-closed');
+    } else {
+        sidebarEl.classList.add('collapsed');
+        bodyEl.classList.add('sidebar-closed');
+    }
+    
     renderSidebar();
     const cur = conversations.find(c=>c.id===curConvId);
     renderChat(cur);
