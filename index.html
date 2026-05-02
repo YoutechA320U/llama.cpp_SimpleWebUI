@@ -86,7 +86,7 @@ body{
 }
 #sidebar.collapsed #sidebar-toggle {
     text-align: center;
-    padding: 12px 0;
+    padding: 12px 12px;
 }
 
 #sidebar h3{
@@ -229,7 +229,7 @@ body{
     font-weight:normal;
     font-size:0.85em;
     color:#555;
-    margin-left:0.8rem;
+    margin-left:1.8rem;
 }
 
 /* -------------------------------------------------------------
@@ -536,7 +536,6 @@ body{
     color:#555;
     margin-left:2.1rem;
     }
-    
     #sidebar {
         position: fixed;
         top: 0;
@@ -1621,12 +1620,12 @@ async function streamBotResponse(curConv) {
 ------------------------------------------------------------- */
 sendBtn.addEventListener('click', handleUserSubmit);
 if(window.innerWidth > 768) {
-    userInput.addEventListener('keydown', e=>{
-        if (e.key==='Enter' && !e.shiftKey){
-            e.preventDefault();
-            handleUserSubmit();
-        }
-    });
+userInput.addEventListener('keydown', e=>{
+    if (e.key==='Enter' && !e.shiftKey){
+        e.preventDefault();
+        handleUserSubmit();
+    }
+});
 }
 /* キーボード表示時などにスクロール位置を調整する */
 userInput.addEventListener('focus', () => {
@@ -1728,15 +1727,18 @@ chatDiv.addEventListener('scroll', () => {
 window.addEventListener('DOMContentLoaded', () => {
     loadFromStorage();
     
-    // サイドバーの状態を適用
-    if (isSidebarOpen) {
+    const isDesktop = window.innerWidth > 768;
+    const shouldOpen = isDesktop || isSidebarOpen;
+    const isMobile = window.innerWidth <= 768;
+    const shouldClose = isMobile || isSidebarOpen;
+    if (shouldOpen) {
         sidebarEl.classList.remove('collapsed');
         bodyEl.classList.remove('sidebar-closed');
-    } else {
+    }
+    if (shouldClose) {
         sidebarEl.classList.add('collapsed');
         bodyEl.classList.add('sidebar-closed');
     }
-    
     renderSidebar();
     const cur = conversations.find(c=>c.id===curConvId);
     renderChat(cur);
