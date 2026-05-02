@@ -1612,12 +1612,14 @@ async function streamBotResponse(curConv) {
    16. UI イベントバインド
 ------------------------------------------------------------- */
 sendBtn.addEventListener('click', handleUserSubmit);
-userInput.addEventListener('keydown', e=>{
-    if (e.key==='Enter' && !e.shiftKey){
-        e.preventDefault();
-        handleUserSubmit();
-    }
-});
+if(window.innerWidth > 768) {
+    userInput.addEventListener('keydown', e=>{
+        if (e.key==='Enter' && !e.shiftKey){
+            e.preventDefault();
+            handleUserSubmit();
+        }
+    });
+}
 /* キーボード表示時などにスクロール位置を調整する */
 userInput.addEventListener('focus', () => {
     // 短時間の遅延を入れて、ブラウザのアニメーション後にスクロール
