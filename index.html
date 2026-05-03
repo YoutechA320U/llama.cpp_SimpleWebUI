@@ -284,6 +284,7 @@ body{
     transform: scale(1.1);
 }
 .bubble{
+  box-sizing: border-box;
   max-width:80%;
   padding: var(--bubble-padding);
   border-radius: var(--bubble-radius);
@@ -300,6 +301,19 @@ body{
 .user .bubble{
   background: var(--bubble-bg-user);
     border-bottom-right-radius: 2px;
+}
+/* チャット画像用のスタイルを新規追加 */
+.chat-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.chat-images img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
 }
 
 /* コードブロック（<pre><code>）の見た目 */
@@ -686,7 +700,6 @@ marked.setOptions({
 const API_URL          = "http://localhost:8080/v1/chat/completions";
 const STOP_API_URL     = "http://localhost:8080/v1/stop";
 const STORAGE_KEY      = "llm_conversations";
-const SIDEBAR_STATE_KEY = "sidebar_open"; // サイドバーの状態を保存するキー
 
 /* ---- LLM へ渡すパラメータ ---- */
 const TEMPERATURE   = 0.8;   // 生成温度
@@ -953,16 +966,12 @@ function loadFromStorage(){
             conversations = [];
         }
     }
-    if (conversations.length===0) createNewConversation();    const savedCur = localStorage.getItem(STORAGE_KEY+"_cur");
+    if (conversations.length===0) createNewConversation();    
+    const savedCur = localStorage.getItem(STORAGE_KEY+"_cur");
     if (savedCur && conversations.find(c=>c.id===savedCur)){
         curConvId = savedCur;
     }else{
         curConvId = conversations[0].id;
-    }
-    
-    const savedSidebarState = localStorage.getItem(SIDEBAR_STATE_KEY);
-    if (savedSidebarState === 'true') {
-        isSidebarOpen = true;
     }
 
     saveToStorage();
@@ -970,7 +979,6 @@ function loadFromStorage(){
 function saveToStorage(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
     localStorage.setItem(STORAGE_KEY+"_cur", curConvId);
-    localStorage.setItem(SIDEBAR_STATE_KEY, isSidebarOpen ? 'true' : 'false');
 }
 
 /* エクスポート・インポート */
@@ -1642,7 +1650,6 @@ function toggleSidebar() {
     isSidebarOpen = !isSidebarOpen;
     sidebarEl.classList.toggle('collapsed', !isSidebarOpen);
     bodyEl.classList.toggle('sidebar-closed', !isSidebarOpen);
-    saveToStorage();
 }
 
 // サイドバー内のハンバーガーボタン
@@ -1658,7 +1665,6 @@ sidebarToggleMobileBtn.addEventListener('click', () => {
         isSidebarOpen = true;
         sidebarEl.classList.remove('collapsed');
         bodyEl.classList.remove('sidebar-closed');
-        saveToStorage();
     }
 });
 
