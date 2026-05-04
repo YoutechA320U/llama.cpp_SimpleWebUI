@@ -538,80 +538,29 @@ body{
     transition: opacity 0.2s ease;
 }
 
-/* -------------------------------------------------------------
-   レスポンシブ対応
-------------------------------------------------------------- */
-/* モバイル（768px以下） */
-@media (max-width: 768px) {
-    /* タイトル横の会話名 */
-    #conv-title{
-    font-weight:normal;
-    font-size:0.85em;
-    color:#555;
-    margin-left:2.1rem;
-    }
-    #sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        height: 100%;
-        z-index: 9000;
-        transition: transform 0.3s ease;
-    }
-    
-    /* サイドバーが開いている場合 */
-    #sidebar:not(.collapsed) {
-        transform: translateX(0);
-    }
-    
-    /* サイドバーが閉じている場合 */
-    #sidebar.collapsed {
-        transform: translateX(-100%);
-        width: var(--sidebar-width);
-    }
-    
-    /* モバイルでのハンバーガーボタン表示 */
-    #sidebar-toggle {
-        display: block;
-    }
-    
-    /* モバイルでサイドバーが開いている時にメインエリアをシフト */
-    body:not(.sidebar-closed) #main {
-        margin-left: 0;
-    }
-    
-    /* モバイルでサイドバーが閉じている時にハンバーガーボタンを画面左に表示 */
-    body.sidebar-closed #sidebar-toggle-mobile {
-        display: block;
-    }
+#sidebar-toggle {
+    display: block;
 }
-
-/* デスクトップ（769px以上） */
-@media (min-width: 769px) {
-    #sidebar-toggle {
-        display: block;
-    }
     
-    /* サイドバー本体を完全に隠す（幅0） */
-    body.sidebar-closed #sidebar {
-        width: 0 !important;
-        min-width: 0;
-        overflow: hidden;
-        border-right: none;
-    }
+/* サイドバー本体を完全に隠す（幅0） */
+body.sidebar-closed #sidebar {
+    width: 0 !important;
+    min-width: 0;
+    overflow: hidden;
+    border-right: none;
+}
     
-    /* ハンバーガーボタンだけは画面左上に固定表示（開閉切り替え用） */
-    body.sidebar-closed #sidebar-toggle {
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: auto;
-        padding: 12px 16px;
-        background: #fff;
-        border-right: 1px solid #ddd;
-        z-index: 1002;
-        box-sizing: border-box;
-    }
+/* ハンバーガーボタンだけは画面左上に固定表示（開閉切り替え用） */
+body.sidebar-closed #sidebar-toggle {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: auto;
+    padding: 12px 16px;
+    background: #fff;
+    border-right: 1px solid #ddd;
+    z-index: 1002;
+    box-sizing: border-box;
 }
 
 
@@ -650,6 +599,22 @@ marked.setOptions({
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/vs2015.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<!-- ★ MathJax を CDN から読み込む -->
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script>
+  // MathJaxの設定: $...$ (インライン) と $$...$$ (ディスプレイ) を有効にする
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    options: {
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+  };
+</script>
+
 </head>
 <body class="sidebar-closed">
 
@@ -720,9 +685,9 @@ let shouldAutoScroll = true;
 let isUserScrolling = false;
 
 //* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
-const TRIM_TOKEN_01 = "";
-const TRIM_TOKEN_02 = "";
-const TRIM_TOKEN_03 = "";
+const TRIM_TOKEN_01 = "</think>\n";
+const TRIM_TOKEN_02 = "<|end|>";
+const TRIM_TOKEN_03 = "<channel|>";
 
 /* -------------------------------------------------------------
    1. SYSTEM_ROLE（別ファイル）
@@ -730,7 +695,6 @@ const TRIM_TOKEN_03 = "";
 const SYSTEM_ROLE_TEMPLATE =`
 あなたは優秀なアシスタントです。
 ・現在の時刻は{time}です。時刻情報が会話に必要ならこれを参照してください。
-・画像を入力されたら、ユーザーから解説を求められるまで画像の解説をしないでください。
 `;
 
 function formatNow() {
@@ -1169,7 +1133,8 @@ function updateTitle(){
 /* -------------------------------------------------------------
    9. ユーティリティ
 ------------------------------------------------------------- */
-function applyHighlightAndCopy(container){
+async function applyHighlightAndCopy(container){
+    // 1. コードブロックのハイライトとコピーボタン
     container.querySelectorAll('pre code').forEach(block=>{
         hljs.highlightElement(block);
         const btn = document.createElement('button');
@@ -1191,7 +1156,13 @@ function applyHighlightAndCopy(container){
         if (existing) existing.remove();
         block.parentNode.appendChild(btn);
     });
+
+    // 2. ★ MathJax による数式のレンダリングを実行
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        await window.MathJax.typesetPromise([container]);
+    }
 }
+
 
 function addCollapsible(bubble){
     if (bubble.classList.contains('collapsible-processed')) return;
@@ -1220,7 +1191,35 @@ function addCollapsible(bubble){
         }
     });
 }
+/* -------------------------------------------------------------
+   数式保護ユーティリティ
+   marked.js が $...$ / $$...$$ 内の _ * などを
+   Markdown として解釈しないようプレースホルダへ退避・復元する
+------------------------------------------------------------- */
+function protectMath(text) {
+    const placeholders = [];
+    // $$...$$ を先に処理（display math）
+    text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => {
+        placeholders.push('$$' + inner + '$$');
+        return '\x02MATH' + (placeholders.length - 1) + '\x03';
+    });
+    // $...$ を処理（inline math）
+    text = text.replace(/\$(?!\$)((?:[^$\\\n]|\\.)+?)\$/g, (_, inner) => {
+        placeholders.push('$' + inner + '$');
+        return '\x02MATH' + (placeholders.length - 1) + '\x03';
+    });
+    return { text, placeholders };
+}
 
+function restoreMath(html, placeholders) {
+    return html.replace(/\x02MATH(\d+)\x03/g, (_, i) => placeholders[parseInt(i)]);
+}
+
+function markedWithMath(text) {
+    const { text: protected_, placeholders } = protectMath(text);
+    const rendered = marked.parse(preprocessMarkdown(protected_));
+    return restoreMath(rendered, placeholders);
+}
 /* -------------------------------------------------------------
    10. Markdown 前処理（シングル改行 → ダブル改行）
    ・コードブロック（``` で囲まれた領域）内では変換しない
@@ -1293,7 +1292,7 @@ function renderChat(conv){
         // テキストを描画
         if (msg.content) {
             const textDiv = document.createElement('div');
-            textDiv.innerHTML = marked.parse(preprocessMarkdown(msg.content));
+            textDiv.innerHTML = markedWithMath(msg.content);
             bubble.appendChild(textDiv);
         }
 
@@ -1493,7 +1492,7 @@ async function streamBotResponse(curConv) {
         }
 
         // 最終的なHTMLを反映
-        botBubble.innerHTML = marked.parse(preprocessMarkdown(trimmed));
+        botBubble.innerHTML = markedWithMath(trimmed);
         applyHighlightAndCopy(botBubble);
         addCollapsible(botBubble);
 
@@ -1553,7 +1552,11 @@ async function streamBotResponse(curConv) {
                             if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
                                 botContent += data.choices[0].delta.content;
                                 // リアルタイムにマークダウンを描画
-                                botBubble.innerHTML = marked.parse(preprocessMarkdown(botContent));
+                                botBubble.innerHTML = markedWithMath(botContent);
+                                 // ★ ストリーミング中も数式を試行的にレンダリング（未完成の数式は無視される）
+                                if (window.MathJax && window.MathJax.typesetPromise) {
+                                    window.MathJax.typesetPromise([botBubble]);
+                                }
                             }
                         } catch (e) {
                             console.error("JSON parse error on stream chunk", e);
@@ -1600,7 +1603,7 @@ async function streamBotResponse(curConv) {
             }
 
             // 最終的なHTMLを反映
-            botBubble.innerHTML = marked.parse(preprocessMarkdown(trimmed));
+            botBubble.innerHTML = markedWithMath(trimmed);
             applyHighlightAndCopy(botBubble);
             addCollapsible(botBubble);
 
@@ -1627,14 +1630,13 @@ async function streamBotResponse(curConv) {
    16. UI イベントバインド
 ------------------------------------------------------------- */
 sendBtn.addEventListener('click', handleUserSubmit);
-if(window.innerWidth > 768) {
 userInput.addEventListener('keydown', e=>{
     if (e.key==='Enter' && !e.shiftKey){
         e.preventDefault();
         handleUserSubmit();
     }
 });
-}
+
 /* キーボード表示時などにスクロール位置を調整する */
 userInput.addEventListener('focus', () => {
     // 短時間の遅延を入れて、ブラウザのアニメーション後にスクロール
@@ -1732,19 +1734,10 @@ chatDiv.addEventListener('scroll', () => {
 ------------------------------------------------------------- */
 window.addEventListener('DOMContentLoaded', () => {
     loadFromStorage();
+
+    sidebarEl.classList.remove('collapsed');
+    bodyEl.classList.remove('sidebar-closed');
     
-    const isDesktop = window.innerWidth > 768;
-    const shouldOpen = isDesktop || isSidebarOpen;
-    const isMobile = window.innerWidth <= 768;
-    const shouldClose = isMobile || isSidebarOpen;
-    if (shouldOpen) {
-        sidebarEl.classList.remove('collapsed');
-        bodyEl.classList.remove('sidebar-closed');
-    }
-    if (shouldClose) {
-        sidebarEl.classList.add('collapsed');
-        bodyEl.classList.add('sidebar-closed');
-    }
     renderSidebar();
     const cur = conversations.find(c=>c.id===curConvId);
     renderChat(cur);
