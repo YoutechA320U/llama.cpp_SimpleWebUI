@@ -815,8 +815,8 @@ function resizeImage(dataUrl) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-            const maxWidth = 720;//SD画質
-            const maxHeight = 480;
+            const maxWidth = 400;
+            const maxHeight = 400;
 
             let width = img.width;
             let height = img.height;
