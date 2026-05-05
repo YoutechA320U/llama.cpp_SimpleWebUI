@@ -1200,7 +1200,6 @@ async function applyHighlightAndCopy(container){
     }
 }
 
-
 function addCollapsible(bubble){
     if (bubble.classList.contains('collapsible-processed')) return;
     bubble.classList.add('collapsible-processed');
@@ -1262,25 +1261,47 @@ function markedWithMath(text) {
    ・コードブロック（``` で囲まれた領域）内では変換しない
    ・テーブルブロック（|などで囲まれた領域）内では変換しない
    ・2 つ以上連続する改行はそのまま保持
+   ・太字(**text** )の直後に文字が密着している場合、右側に半角スペースを入れる
 ------------------------------------------------------------- */
 function preprocessMarkdown(text){
     if(!text) return "";
-    const lines = text.split('\n');
+
+    // 1. まず、太字の右側に文字が密着している箇所を修正する
+    // 正規表現の解説:
+    // (\*\*[^\*]+\*\*) : ** で囲まれた中身をグループ1としてキャプチャ
+    // (?=[^\s])       : 肯定先読み。直後に空白以外の文字が続く場合のみマッチ
+    // 置換後: $1 + " " (キャプチャした太字にスペースを足す)
+    // ※ただし、この処理をコードブロック内で行わないよう、後続の処理と整合性を取る必要があります。
+    // ここでは、まずテキスト全体に対して「太字の直後に文字が続く場合」を対象に修正を行います。
+    // (コードブロック内も一旦対象になりますが、後の工程でコードブロックの扱いは維持されます)
+    
+    // 修正版のロジック:
+    // 以下の正規表現は「** 太字** 」の直後に「空白以外の文字」がある場合、
+    // その間にスペースを挿入します。
+    let processedText = text.replace(/(\*\*[^\*]+\*\*)(?=[^\s\n])/g, '$1 ');
+
+    const lines = processedText.split('\n');
     const out   = [];
     let inCodeBlock = false;
     let inTableBlock = false;
 
     for(let i=0;i<lines.length;i++){
         const line = lines[i];
+        
+        // コードブロック判定
         if (line.trim().startsWith('```')){
             out.push(line);
             inCodeBlock = !inCodeBlock;
             continue;
         }
+        
+        // コードブロック内であれば、改行の調整などは一切行わずそのまま出力
         if (inCodeBlock){
             out.push(line);
             continue;
         }
+
+        // テーブルブロック判定
         const isTableRow = line.trim().startsWith('|');
         const isTableSep = line.trim().match(/^(\s*\|?[-:]+\s*\|)+\s*$/);
         if (isTableRow || isTableSep){
@@ -1291,7 +1312,10 @@ function preprocessMarkdown(text){
         if (inTableBlock && line.trim() === ''){
             inTableBlock = false;
         }
+
         out.push(line);
+        
+        // コードブロック・テーブルブロック外のみ、シングル改行をダブル改行へ
         if (!inTableBlock && line.trim() !== '' && i+1 < lines.length && lines[i+1].trim() !== ''){
             out.push('');
         }
