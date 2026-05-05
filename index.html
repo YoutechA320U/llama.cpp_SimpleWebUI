@@ -949,45 +949,82 @@ function saveToStorage(){
 exportBtn.addEventListener('click', exportConversations);
 importBtn.addEventListener('click', importConversations);
 
-/**
- * 会話データをJSON形式でダウンロードします。
- * ファイル名はプロンプトで指定可能になります。
- */
-function exportConversations() {
-    // 1. 現行のコードで生成されるデフォルトのファイル名を作成
+ /* 会話データをJSON形式でダウンロードします。*/
+async function exportConversations() {
+    // 1. デフォルトのファイル名を作成
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
-    const defaultFilename = `conversations_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+    const defaultFilename = `chatlog_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
 
-    // 2. ファイル名入力を促すプロンプトを表示し、キャンセル処理を考慮する
-    const customFilename = prompt("ダウンロードするファイル名を入力してください。\n(入力しない場合は現在のタイムスタンプ名が使用されます。)", defaultFilename);
+    // 2. File System Access API のサポート確認
+    if (window.showSaveFilePicker) {
+        // --- File System Access API を使用する場合 ---
+        const opts = {
+            suggestedName: defaultFilename,
+            types: [{
+                description: 'JSON file',
+                accept: {
+                    'application/json': ['.json'],
+                },
+            }],
+        };
 
-    // 3. キャンセルされた場合（nullが返された場合）は処理を中断
-    if (customFilename === null) {
-        console.log("ユーザーによりファイル名入力がキャンセルされました。処理を中断します。");
-        return; // 関数を終了
-    }
-
-    // 4. ファイル名が空の場合（ユーザーがEnterキーを押して何も入力しなかった場合）もデフォルト名を使用
-    const filenameToUse = customFilename || defaultFilename;
-
-    // データ処理とダウンロードの実行
-    try {
-        const data = JSON.stringify(conversations, null, 2);
-        const blob = new Blob([data], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
+        try {
+            // 保存ダイアログを表示
+            const handle = await window.showSaveFilePicker(opts);
+            
+            // ファイルハンドルから書き込みストリームを取得
+            const writable = await handle.createWritable();
+            
+            // JSONデータを文字列化して書き込む
+            const data = JSON.stringify(conversations, null, 2);
+            await writable.write(data);
+            
+            // ストリームを閉じて保存を確定
+            await writable.close();
+            
+            console.log(`会話データをファイル名 "${handle.name}" に保存しました。`);
+        } catch (err) {
+            // ユーザーがキャンセルした場合 (AbortError) はエラーとして扱わない
+            if (err.name !== 'AbortError') {
+                console.error('ファイル保存中にエラーが発生しました:', err);
+            }
+        }
+    } else {
+        // --- 従来のダウンロード方式（フォールバック）を使用する場合 ---
+        // 3. ファイル名入力を促すプロンプトを表示（API非対応時のみ、またはUIの一貫性のため）
+        // ※File System Access APIの場合はダイアログで名前変更できるので、プロンプトは不要ですが、
+        //    元のロジックを残すか、単純にデフォルト名でダウンロードするか選択できます。
+        //    ここでは、API非対応時のみプロンプトを出す形にします。
         
-        // ユーザーが指定した名前（またはデフォルト名）を適用
-        a.download = filenameToUse; 
-        
-        a.click();
-        URL.revokeObjectURL(url);
-        console.log(`会話データをファイル名 "${filenameToUse}" でダウンロードしました。`);
-    } catch (error) {
-        console.error("ファイルのダウンロード中にエラーが発生しました:", error);
+        const customFilename = prompt("ダウンロードするファイル名を入力してください。\n(入力しない場合は現在のタイムスタンプ名が使用されます。)", defaultFilename);
+
+        // キャンセルされた場合は中断
+        if (customFilename === null) {
+            console.log("ユーザーによりファイル名入力がキャンセルされました。処理を中断します。");
+            return;
+        }
+
+        const filenameToUse = customFilename || defaultFilename;
+
+        try {
+            const data = JSON.stringify(conversations, null, 2);
+            const blob = new Blob([data], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filenameToUse;
+            
+            document.body.appendChild(a); // 一部のブラウザで必要
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log(`会話データをファイル名 "${filenameToUse}" でダウンロードしました。`);
+        } catch (error) {
+            console.error("ファイルのダウンロード中にエラーが発生しました:", error);
+        }
     }
 }
 
@@ -1708,11 +1745,6 @@ stopBtn.addEventListener('click', async () => {
     }
 });
 newConvBtn.addEventListener('click', createNewConversation);
-
-exportBtn.addEventListener('click', exportConversations);
-importBtn.addEventListener('click', importConversations);
-
-
 
 /* スクロール制御ロジック ★ */
 chatDiv.addEventListener('scroll', () => {
