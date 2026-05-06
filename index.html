@@ -48,7 +48,7 @@ body{
     font-family: Helvetica,Arial,sans-serif;
     background:#f5f5f5;
     display:flex;
-    height: 100vh ;
+    height: 100svh ;
     overflow: auto; 
     transition: all 0.3s ease;
 }
@@ -695,6 +695,10 @@ const TRIM_TOKEN_01 = "";
 const TRIM_TOKEN_02 = "";
 const TRIM_TOKEN_03 = "";
 
+/* モバイルOSかどうかを判定する関数 */
+function isMobileOS() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
 /* -------------------------------------------------------------
    1. SYSTEM_ROLE（別ファイル）
 ------------------------------------------------------------- */
@@ -783,15 +787,13 @@ function unblockUI(){
    3-1. USER-INPUT自動リサイズ
 ------------------------------------------------------------- */
 const tx = document.getElementById('user-input');
+function resizeUserInput() {
+    tx.style.height = '120px'; 
+    tx.style.height = tx.scrollHeight + 'px';
+}
 
-tx.addEventListener('input', function() {
-    // 一旦高さをリセットして、現在のコンテンツの正確な高さを測る
-    this.style.height = '120px'; 
-    
-    // scrollHeight（中身の実際の高さ）をstyle.heightに適用する
-    // これにより、max-heightに達するまで自動的に伸びる
-    this.style.height = this.scrollHeight + 'px';
-});
+tx.addEventListener('input', resizeUserInput);
+
 /* -------------------------------------------------------------
    4. データ構造と状態管理
 ------------------------------------------------------------- */
@@ -1436,6 +1438,7 @@ function onEditMessage(index) {
     if (!curConv) return;
     const targetMsg = curConv.messages[index];
     userInput.value = targetMsg.content || "";
+    resizeUserInput();
     
     // 編集時に画像も復元
     currentPendingImages = targetMsg.images ? [...targetMsg.images] : [];
@@ -1501,6 +1504,7 @@ async function handleUserSubmit(){
     userInput.value = '';
     currentPendingImages = [];
     renderPendingImages();
+    resizeUserInput();
     
     if (editState.active){
         const idx = editState.index;
@@ -1721,8 +1725,8 @@ async function streamBotResponse(curConv) {
 ------------------------------------------------------------- */
 sendBtn.addEventListener('click', handleUserSubmit);
 userInput.addEventListener('keydown', e=>{
-    // ★ 画面幅が768px以下の場合、Enterキーで送信しないように変更
-    if (e.key==='Enter' && !e.shiftKey && window.innerWidth > 768){
+    // ★ モバイルOSの場合、Enterキーで送信しないように変更
+    if (e.key==='Enter' && !e.shiftKey && !isMobileOS()){
         e.preventDefault();
         handleUserSubmit();
     }
@@ -1758,6 +1762,17 @@ sidebarToggleMobileBtn.addEventListener('click', () => {
         isSidebarOpen = true;
         sidebarEl.classList.remove('collapsed');
         bodyEl.classList.remove('sidebar-closed');
+    }
+});
+/* モバイルOSでサイドバー以外をタップした時に閉じる */
+window.addEventListener('click', (e) => {
+    if (isMobileOS() && isSidebarOpen) { 
+        // クリックされた要素がサイドバーの中ではなく、かつモバイル用トグルボタンでもない場合
+        if (!sidebarEl.contains(e.target) && e.target !== sidebarToggleMobileBtn) {
+            isSidebarOpen = false;
+            sidebarEl.classList.add('collapsed');
+            bodyEl.classList.add('sidebar-closed');
+        }
     }
 });
 
@@ -1821,12 +1836,10 @@ chatDiv.addEventListener('scroll', () => {
 window.addEventListener('DOMContentLoaded', () => {
     loadFromStorage();
 
-    // ★ 画面幅が768px以下の場合、サイドバーをデフォルトで閉じた状態にする
-    if (window.innerWidth <= 768) {
-        // collapsed クラスと sidebar-closed クラスを維持（削除しない）
-        // これにより、CSSで定義された閉じた状態（width: 0, position: fixed）が適用される
+    if (isMobileOS()) { // ←修正
+        // モバイルOSの場合は閉じた状態を維持
     } else {
-        // 画面幅が768pxより大きい場合は、デフォルトで開く
+        // モバイルOSではない場合は、デフォルトで開く
     sidebarEl.classList.remove('collapsed');
     bodyEl.classList.remove('sidebar-closed');
     }
