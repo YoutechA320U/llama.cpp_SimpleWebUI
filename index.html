@@ -1238,20 +1238,30 @@ function preprocessMarkdown(text) {
     console.log("=== INPUT ===\n", JSON.stringify(text));
     if (!text) return "";
 
-    // <p>タグで囲まれたHTMLが渡された場合、プレーンテキストに戻す
-    if (text.trim().startsWith('<p>')) {
-        text = text
-            .replace(/<p>/g, '')
-            .replace(/<\/p>/g, '\n')
-            .replace(/&amp;/g, '&')
-            .replace(/\\([a-zA-Z{])/g, '\\\\$1')
-            .replace(/\\ /g, '\\\\ ');
-}
+    // 1. HTMLタグのクリーニング
+    // <p>タグなどで囲まれている場合、それらを単純な改行に変換する。
+    // ただし、replaceで直接消すとMarkdownの構造が壊れるため、
+    // 一旦「Markdownとして解釈しやすい形式」に整えます。
+    let processed = text
+        .replace(/<p[^>]*>/g, '')    // <p> を削除
+        .replace(/<\/p>/g, '\n')    // </p> を改行に
+        .replace(/<br\s*\/?>/gi, '\n'); // <br> も改行に
 
-    // ★ **...** を <strong>...</strong> に変換（日本語文字・全角記号隣接問題の回避）
-    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // 2. marked.js の既知の問題（全角文字と**の隣接）への対策
+    // 「**」の直後に全角文字（日本語）が来ている場合、markedが太字として認識しない問題を解決します。
+    // 手法：一旦、太字の閉じ記号「**」を「__」に置換するか、
+    // もしくは「**」の直後に「ゼロ幅スペース(\u200B)」を挿入して、
+    // 文字列としては隣接させず、見た目とパースを両立させます。
+    
+    // 「**」の直後に全角文字が来るケースを検出し、間にゼロ幅スペースを挟む
+    // [^\u0000-\u007F] は全角文字（非ASCII文字）にマッチします
+    // 閉じの <strong> の直後に全角文字がある場合、または開始の </strong> の前に全角文字がある場合
+    processed = processed.replace(/(\*\*)([^\u0000-\u007F])/g, '$1\u200B$2'); // 閉じ記号の後
+    processed = processed.replace(/([^\u0000-\u007F])(\*\*)/g, '$1\u200B$2'); // 開始記号の前
 
-    const lines = text.split('\n');
+    // 3. 数式保護用の処理（既存ロジックの維持）
+    // 既に実装されている数式ブロックの判定ロジック
+    const lines = processed.split('\n');
     const out = [];
     let inCodeBlock = false;
     let inMathBlock = false;
