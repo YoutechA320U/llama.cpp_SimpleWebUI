@@ -457,25 +457,27 @@ body{
     border-radius: 4px;
 }
 #attach-img-btn:hover { background: #eee; }
-#user-input{
-    flex:1;
-    min-height:120px;
-    height:auto;
-    max-height:300px;
-    padding:10px;
-    font-size:1rem;
-    border:1px solid #bbb;
-    border-radius:4px;
-    resize:vertical;
-    box-sizing:border-box;
+#user-input {
+    flex: 1;
+    min-height: 120px;
+    height: 120px; /* 初期値をmin-heightに合わせる */
+    max-height: 500px;
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    resize: none; /* 自動調整させるため、ユーザーによる手動リサイズは無効にするのが一般的です */
+    box-sizing: border-box;
+    line-height: 1.5;  /* 行間を一定にする（計算を安定させるため） */
 }
+
 #send-btn{
-    padding:10px 16px;
+    padding:10px 7px;
     font-size:1rem;
     cursor:pointer;
 }
 #stop-btn {
-    padding: 10px 16px;
+    padding: 10px 7px;
     font-size: 1rem;
     cursor: pointer;
     background: #f44336;
@@ -487,7 +489,7 @@ body{
 
 /* キャンセルボタン（編集中だけ表示） */
 #cancel-edit-btn{
-    padding:10px 16px;
+    padding:10px 7px;
     font-size:1rem;
     cursor:pointer;
     background:#f44334;
@@ -652,10 +654,10 @@ marked.setOptions({
         <div id="input-area">
             <button id="attach-img-btn" title="画像を添付">🖼️</button>
             <input type="file" id="img-input" accept="image/*" multiple style="display:none;">
-            <textarea id="user-input" rows="4" placeholder="質問を入力…"></textarea>
+            <textarea id="user-input" placeholder="質問を入力…"></textarea>
             <button id="send-btn">送信</button>
             <button id="stop-btn">停止</button>
-            <button id="cancel-edit-btn">キャンセル</button>
+            <button id="cancel-edit-btn" title="キャンセル">×</button>
         </div>
     </div>
 </div>
@@ -777,7 +779,19 @@ function unblockUI(){
     sidebarEl.classList.remove('locked');
     
 }
+/* -------------------------------------------------------------
+   3-1. USER-INPUT自動リサイズ
+------------------------------------------------------------- */
+const tx = document.getElementById('user-input');
 
+tx.addEventListener('input', function() {
+    // 一旦高さをリセットして、現在のコンテンツの正確な高さを測る
+    this.style.height = '120px'; 
+    
+    // scrollHeight（中身の実際の高さ）をstyle.heightに適用する
+    // これにより、max-heightに達するまで自動的に伸びる
+    this.style.height = this.scrollHeight + 'px';
+});
 /* -------------------------------------------------------------
    4. データ構造と状態管理
 ------------------------------------------------------------- */
@@ -1707,7 +1721,8 @@ async function streamBotResponse(curConv) {
 ------------------------------------------------------------- */
 sendBtn.addEventListener('click', handleUserSubmit);
 userInput.addEventListener('keydown', e=>{
-    if (e.key==='Enter' && !e.shiftKey){
+    // ★ 画面幅が768px以下の場合、Enterキーで送信しないように変更
+    if (e.key==='Enter' && !e.shiftKey && window.innerWidth > 768){
         e.preventDefault();
         handleUserSubmit();
     }
@@ -1806,8 +1821,15 @@ chatDiv.addEventListener('scroll', () => {
 window.addEventListener('DOMContentLoaded', () => {
     loadFromStorage();
 
+    // ★ 画面幅が768px以下の場合、サイドバーをデフォルトで閉じた状態にする
+    if (window.innerWidth <= 768) {
+        // collapsed クラスと sidebar-closed クラスを維持（削除しない）
+        // これにより、CSSで定義された閉じた状態（width: 0, position: fixed）が適用される
+    } else {
+        // 画面幅が768pxより大きい場合は、デフォルトで開く
     sidebarEl.classList.remove('collapsed');
     bodyEl.classList.remove('sidebar-closed');
+    }
     
     renderSidebar();
     const cur = conversations.find(c=>c.id===curConvId);
