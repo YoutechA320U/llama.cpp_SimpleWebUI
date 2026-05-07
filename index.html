@@ -50,7 +50,6 @@ body{
     display:flex;
     height: 100svh ;
     overflow: auto; 
-    transition: all 0.3s ease;
 }
 
 /* ---------- サイドバー ---------- */
@@ -61,7 +60,6 @@ body{
     display:flex;
     flex-direction:column;
     font-size: 0.9rem;
-    transition: width 0.3s ease;
     flex-shrink: 0; /* サイズが縮まないようにする */
     position: relative;
 }
@@ -78,7 +76,6 @@ body{
     cursor: pointer;
     padding: 12px 16px;
     color: #333;
-    transition: color 0.2s, opacity 0.2s;
     flex-shrink: 0;
 }
 #sidebar-toggle:hover {
@@ -103,7 +100,7 @@ body{
 /* サイドバーが畳まれたとき、h3のテキストを隠し、アイコンのみ表示させる */
 #sidebar.collapsed h3 {
     text-align: center;
-    padding: 12px 0;
+    padding: 12px 12px;
 }
 
 /* ボタンを横並びにするラッパー */
@@ -217,7 +214,6 @@ body{
     flex-direction:column;
     overflow-y:auto; /* メインエリアでスクロール */
     padding:20px;
-    transition: margin-left 0.3s ease; /* サイドバーの移動に合わせてアニメーション */
 }
 #title{
     margin:0 0 20px;
@@ -265,7 +261,6 @@ body{
     gap: 4px;
     margin: 0 8px;
     opacity: 0; /* デフォルトは非表示 */
-    transition: opacity 0.2s;
 }
 .msg-row:hover .msg-actions {
     opacity: 1;
@@ -387,7 +382,7 @@ body{
 
 /* 折りたたみ時のスタイル */
 .collapsed{
-    max-height:200px;               /* 目安の高さ */
+    max-height:200px; /* 目安の高さ */
     overflow:hidden;
     position:relative;
 }
@@ -537,7 +532,6 @@ body{
     /* クリック等の操作を受け付けない */
     pointer-events: none;
     /* スムーズに変化させる */
-    transition: opacity 0.2s ease;
 }
 
 #sidebar-toggle {
@@ -583,6 +577,53 @@ body.sidebar-closed #sidebar-toggle {
 }
 #sidebar-toggle-mobile:hover {
     background: #f0f0f0;
+}
+/* ドラッグ中のスタイル */
+#conv-list li.dragging {
+    opacity: 0.5;
+    background: #eee;
+}
+#conv-list li {
+    user-select: none; /* ドラッグ操作をスムーズにする */
+}
+
+/* --- 追加のCSS --- */
+#sidebar {
+    /* 既存のスタイルに以下を追加/修正 */
+    display: flex;
+    flex-direction: column;
+}
+
+#conv-list {
+    flex: 1; /* 会話リストが余白を埋めるようにする */
+    overflow-y: auto;
+}
+
+/* 履歴クリアボタンのコンテナ（サイドバーの最下部に配置） */
+#clear-history-wrapper {
+    padding: 8px;
+    border-top: 1px solid #ddd;
+    background: #fff;
+}
+
+#clear-history-btn {
+    width: 100%;
+    padding: 10px;
+    background: #f44336; /* 赤色 */
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#clear-history-btn:hover {
+    background: #d32f2f;
+}
+
+/* サイドバーが畳まれた時のボタン表示制御 */
+#sidebar.collapsed #clear-history-wrapper {
+    display: none; /* 畳まれている時は隠す（またはアイコンのみにする） */
 }
 </style>
 
@@ -639,8 +680,13 @@ marked.setOptions({
         <button id="import-conv">インポート</button>
     </div>
 
+    <!-- ★ 履歴クリアボタンのエリア ★ -->
+    <div id="clear-history-wrapper">
+        <button id="clear-history-btn">🗑️ 履歴をすべて削除</button>
+    </div>
+
     <!-- 隠しファイル入力 (インポート用) -->
-    <input type="file" id="import-file" accept=".json" style="display:none;">
+    <input type="file" id="import-file" accept=".json" multiple style="display:none;">
 </div>
 
 <div id="main">
@@ -655,8 +701,8 @@ marked.setOptions({
             <button id="attach-img-btn" title="画像を添付">🖼️</button>
             <input type="file" id="img-input" accept="image/*" multiple style="display:none;">
             <textarea id="user-input" placeholder="質問を入力…"></textarea>
-            <button id="send-btn">送信</button>
-            <button id="stop-btn">停止</button>
+            <button id="send-btn"><img src="ei-send.png" placeholder="送信" style="width: 20px; height: 20px;"></button>
+            <button id="stop-btn">■</button>
             <button id="cancel-edit-btn" title="キャンセル">×</button>
         </div>
     </div>
@@ -790,8 +836,18 @@ const tx = document.getElementById('user-input');
 function resizeUserInput() {
     tx.style.height = '120px'; 
     tx.style.height = tx.scrollHeight + 'px';
+    if (isMobileOS())
+    {
+        tx.style.minHeight = '50px';
+        tx.style.height = '50px';
+        tx.style.maxHeight = '300px';
+    tx.style.height = tx.scrollHeight + 'px';
 }
-
+}
+if (isMobileOS())
+{
+    resizeUserInput();
+}
 tx.addEventListener('input', resizeUserInput);
 
 /* -------------------------------------------------------------
@@ -968,47 +1024,58 @@ function saveToStorage(){
 /* エクスポート・インポート */
 exportBtn.addEventListener('click', exportConversations);
 importBtn.addEventListener('click', importConversations);
+// 履歴クリアボタンの要素取得
+const clearHistoryBtn = document.getElementById('clear-history-btn');
 
+// 履歴クリアのイベントリスナー
+clearHistoryBtn.addEventListener('click', () => {
+    if (confirm('本当にすべての会話履歴を削除してもよろしいですか？この操作は取り消せません。')) {
+        // 1. データを空にする
+        conversations = [];
+        curConvId = null;
+        
+        // 2. ストレージをクリア
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(STORAGE_KEY + "_cur");
+
+        // 3. 新しい会話を一つ作成して初期化
+        createNewConversation();
+        
+        // 4. UIを再描画
+        renderSidebar();
+        renderChat(conversations[0]);
+        updateTitle();
+        
+        alert('履歴を削除しました。');
+    }
+});
  /* 会話データをJSON形式でダウンロードします。*/
 async function exportConversations() {
-    // 1. デフォルトのファイル名を作成
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const defaultFilename = `chatlog_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+    const curConv = conversations.find(c => c.id === curConvId);
+    if (!curConv) return;
 
-    // 2. File System Access API のサポート確認
+    // 1. ファイル名は会話タイトルをデフォルトにする
+    const defaultFilename = `${curConv.name.replace(/[/\\?%*:|"<>]/g, '-')}.json`;
+
     if (window.showSaveFilePicker) {
         // --- File System Access API を使用する場合 ---
         const opts = {
             suggestedName: defaultFilename,
             types: [{
                 description: 'JSON file',
-                accept: {
-                    'application/json': ['.json'],
-                },
-            }],
+                accept: { 'application/json': ['.json'] } }],
         };
-
         try {
             // 保存ダイアログを表示
             const handle = await window.showSaveFilePicker(opts);
             
             // ファイルハンドルから書き込みストリームを取得
             const writable = await handle.createWritable();
-            
-            // JSONデータを文字列化して書き込む
-            const data = JSON.stringify(conversations, null, 2);
-            await writable.write(data);
-            
-            // ストリームを閉じて保存を確定
+            // 2. 今開いている会話(curConv)だけを書き出す
+            await writable.write(JSON.stringify([curConv], null, 2));
             await writable.close();
-            
-            console.log(`会話データをファイル名 "${handle.name}" に保存しました。`);
         } catch (err) {
-            // ユーザーがキャンセルした場合 (AbortError) はエラーとして扱わない
-            if (err.name !== 'AbortError') {
-                console.error('ファイル保存中にエラーが発生しました:', err);
-            }
+            if (err.name !== 'AbortError') console.error(err);
         }
     } else {
         // --- 従来のダウンロード方式（フォールバック）を使用する場合 ---
@@ -1016,76 +1083,82 @@ async function exportConversations() {
         // ※File System Access APIの場合はダイアログで名前変更できるので、プロンプトは不要ですが、
         //    元のロジックを残すか、単純にデフォルト名でダウンロードするか選択できます。
         //    ここでは、API非対応時のみプロンプトを出す形にします。
-        
-        const customFilename = prompt("ダウンロードするファイル名を入力してください。\n(入力しない場合は現在のタイムスタンプ名が使用されます。)", defaultFilename);
-
-        // キャンセルされた場合は中断
-        if (customFilename === null) {
-            console.log("ユーザーによりファイル名入力がキャンセルされました。処理を中断します。");
-            return;
-        }
-
-        const filenameToUse = customFilename || defaultFilename;
-
-        try {
-            const data = JSON.stringify(conversations, null, 2);
+        const data = JSON.stringify([curConv], null, 2);
             const blob = new Blob([data], { type: "application/json" });
             const url = URL.createObjectURL(blob);
-
             const a = document.createElement('a');
             a.href = url;
-            a.download = filenameToUse;
-            
-            document.body.appendChild(a); // 一部のブラウザで必要
+        a.download = defaultFilename;
             a.click();
-            document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
-            console.log(`会話データをファイル名 "${filenameToUse}" でダウンロードしました。`);
-        } catch (error) {
-            console.error("ファイルのダウンロード中にエラーが発生しました:", error);
-        }
     }
 }
 
-function importConversations(){ importFileInput.click(); }
-importFileInput.addEventListener('change', e=>{
-    const file = e.target.files[0];
-    if (!file) return;
+function importConversations() {
+    importFileInput.click();
+}
 
-    const reader = new FileReader();
-    reader.onload = ev=>{
-        try{
-            const parsed = JSON.parse(ev.target.result);
-            if (!Array.isArray(parsed)){
-                alert('インポートファイルの形式が正しくありません。');
-                return;
+importFileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files); // 選択された全ファイルを取得
+    if (files.length === 0) return;
+
+    // 各ファイルを順番に読み込んで処理する
+    for (const file of files) {
+        try {
+            const text = await file.text(); // ファイルの内容をテキストとして取得
+            const parsed = JSON.parse(text);
+            
+            // 配列形式であることを想定（エクスポート仕様に合わせる）
+            const newConvs = Array.isArray(parsed) ? parsed : [parsed];
+
+            // 会話リストの先頭に追加
+            conversations = [...newConvs, ...conversations];
+
+            // 重複IDの除去
+            const seen = new Set();
+            conversations = conversations.filter(c => {
+                if (seen.has(c.id)) return false;
+                seen.add(c.id);
+                return true;
+            });
+
+        } catch (err) {
+            console.error(`ファイル ${file.name} の解析に失敗しました:`, err);
+            alert(`ファイル ${file.name} の解析に失敗しました。`);
             }
-            conversations = parsed;
-            curConvId = conversations[0]?.id || null;
+    }
+
+    // 全ファイルの処理が終わった後に状態を更新
+    if (conversations.length > 0) {
+        curConvId = conversations[0].id;
             saveToStorage();
             renderSidebar();
-            const cur = conversations.find(c=>c.id===curConvId);
+        const cur = conversations.find(c => c.id === curConvId);
             renderChat(cur);
             updateTitle();
-        }catch(err){
-            console.error(err);
-            alert('JSON の解析に失敗しました。');
         }
-    };
-    reader.readAsText(file);
-    importFileInput.value = '';
+    
+    importFileInput.value = ''; // リセット
 });
+
 
 /* -------------------------------------------------------------
    6. サイドバー描画
 ------------------------------------------------------------- */
 function renderSidebar(){
     convListEl.innerHTML = "";
-    conversations.forEach(conv=>{
+    conversations.forEach((conv, index) => {
         const li = document.createElement('li');
         li.dataset.id = conv.id;
+        li.dataset.index = index; // 並べ替え用インデックス
         if (conv.id===curConvId) li.classList.add('active');
+
+        // --- ドラッグ＆ドロップ用のイベント設定 ---
+        li.draggable = true;
+        li.addEventListener('dragstart', handleDragStart);
+        li.addEventListener('dragover', handleDragOver);
+        li.addEventListener('drop', handleDrop);
+        li.addEventListener('dragend', handleDragEnd);
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'conv-name';
@@ -1131,6 +1204,41 @@ function renderSidebar(){
 
         convListEl.appendChild(li);
     });
+}
+
+// --- ドラッグ＆ドロップ制御用補助関数 ---
+let dragSrcEl = null;
+
+function handleDragStart(e) {
+    dragSrcEl = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) e.preventDefault();
+    return false;
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) e.stopPropagation();
+    
+    if (dragSrcEl !== this) {
+        const fromIdx = parseInt(dragSrcEl.dataset.index);
+        const toIdx = parseInt(this.dataset.index);
+        
+        // 配列の並べ替え
+        const movedItem = conversations.splice(fromIdx, 1)[0];
+        conversations.splice(toIdx, 0, movedItem);
+        
+        saveToStorage();
+        renderSidebar();
+    }
+    return false;
+}
+
+function handleDragEnd() {
+    this.classList.remove('dragging');
 }
 
 /* -------------------------------------------------------------
@@ -1447,7 +1555,7 @@ function onEditMessage(index) {
     userInput.focus();
     editState.active = true;
     editState.index  = index;
-    cancelEditBtn.style.display = 'inline-block';
+    cancelEditBtn.style.display = isMobileOS() ? 'none' : 'inline-block';
 }
 
 function onRerunMessage(index) {
@@ -1479,6 +1587,7 @@ function cancelEdit(){
     userInput.value = '';
     currentPendingImages = [];
     renderPendingImages();
+    resizeUserInput()
     cancelEditBtn.style.display = 'none';
 }
 
@@ -1772,6 +1881,9 @@ window.addEventListener('click', (e) => {
             isSidebarOpen = false;
             sidebarEl.classList.add('collapsed');
             bodyEl.classList.add('sidebar-closed');
+        }
+        if (editState.active && !document.getElementById('input-container').contains(e.target)) {
+            cancelEdit();
         }
     }
 });
