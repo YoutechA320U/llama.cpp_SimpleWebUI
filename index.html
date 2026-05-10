@@ -287,8 +287,9 @@ body{
   font-family: var(--bubble-font);
   font-size: var(--bubble-fsize);
   color: var(--bubble-fg);
-  background: var(--bubble-bg-bot);   /* デフォルトは bot 用 */
-  word-wrap: break-word; /* 長い単語がはみ出さないように */
+  background: var(--bubble-bg-bot);
+  word-wrap: break-word;
+  position: relative; /* 追加 */
 }
 .bot .bubble{
     border-bottom-left-radius: 2px;
@@ -625,6 +626,7 @@ body.sidebar-closed #sidebar-toggle {
 #sidebar.collapsed #clear-history-wrapper {
     display: none; /* 畳まれている時は隠す（またはアイコンのみにする） */
 }
+
 </style>
 
 <!-- ★ Markdown パーサ (marked.js) を CDN から読み込み -->
@@ -1359,19 +1361,12 @@ function addCollapsible(bubble){
    10. Markdown 前処理
 ------------------------------------------------------------- */
 function preprocessMarkdown(text) {
-    console.log("=== INPUT ===\n", JSON.stringify(text));
+    //console.log("=== INPUT ===\n", JSON.stringify(text));
     if (!text) return "";
 
-    // 1. HTMLタグのクリーニング
-    // <p>タグなどで囲まれている場合、それらを単純な改行に変換する。
-    // ただし、replaceで直接消すとMarkdownの構造が壊れるため、
-    // 一旦「Markdownとして解釈しやすい形式」に整えます。
-    let processed = text
-        .replace(/<p[^>]*>/g, '')    // <p> を削除
-        .replace(/<\/p>/g, '\n')    // </p> を改行に
-        .replace(/<br\s*\/?>/gi, '\n'); // <br> も改行に
+    let processed = text; // <br> も改行に
 
-    // 2. marked.js の既知の問題（全角文字と**の隣接）への対策
+    //  marked.js の既知の問題（全角文字と**の隣接）への対策
     // 「**」の直後に全角文字（日本語）が来ている場合、markedが太字として認識しない問題を解決します。
     // 手法：一旦、太字の閉じ記号「**」を「__」に置換するか、
     // もしくは「**」の直後に「ゼロ幅スペース(\u200B)」を挿入して、
@@ -1380,8 +1375,8 @@ function preprocessMarkdown(text) {
     // 「**」の直後に全角文字が来るケースを検出し、間にゼロ幅スペースを挟む
     // [^\u0000-\u007F] は全角文字（非ASCII文字）にマッチします
     // 閉じの <strong> の直後に全角文字がある場合、または開始の </strong> の前に全角文字がある場合
-    processed = processed.replace(/(\*\*)([^\u0000-\u007F])/g, '$1\u200B$2'); // 閉じ記号の後
-    processed = processed.replace(/([^\u0000-\u007F])(\*\*)/g, '$1\u200B$2'); // 開始記号の前
+    processed = processed.replace(/(\*\*)([^\u0000-\u007F]|`)/g, '$1\u200B$2'); // 最初の ​**​（開始記号）
+    processed = processed.replace(/([^\u0000-\u007F]|`)(\*\*)/g, '$1\u200B$2'); // 後ろの ​**（閉じ記号）
 
     // 3. 数式保護用の処理（既存ロジックの維持）
     // 既に実装されている数式ブロックの判定ロジック
@@ -1492,7 +1487,7 @@ function renderChat(conv){
         if (msg.content) {
             const textDiv = document.createElement('div');
             textDiv.innerHTML = marked.parse(preprocessMarkdown(msg.content))
-            console.log("=== preprocessINPUT ===\n", JSON.stringify(marked.parse(preprocessMarkdown(msg.content))));
+            //console.log("=== preprocessINPUT ===\n", JSON.stringify(marked.parse(preprocessMarkdown(msg.content))));
             bubble.appendChild(textDiv);
         }
 
@@ -1651,36 +1646,14 @@ async function streamBotResponse(curConv) {
 
     let botContent = '';
 
-    // ① メッセージ配列の構築
-    const apiMessages = [
-        { role: "system", content: getSystemRole() }
-    ];
-
-    curConv.messages.forEach(msg => {
-        // 画像が含まれている場合、OpenAI互換のVisionフォーマット(Array)に変換
-        if (msg.images && msg.images.length > 0) {
-            let contentArray = [];
-            if (msg.content) {
-                contentArray.push({ type: "text", text: msg.content });
-            }
-            msg.images.forEach(imgBase64 => {
-                contentArray.push({
-                    type: "image_url",
-                    image_url: { url: imgBase64 }
-                });
-            });
-            apiMessages.push({ role: msg.role, content: contentArray });
-        } else {
-            apiMessages.push({ role: msg.role, content: msg.content });
-        }
-    });
-    // トリミング処理を関数化して再利用可能にする
-    const finishGeneration = () => {
+    // ★ 終了処理を一つの関数に集約
+    // これにより、[DONE]受信、自然終了、停止ボタン押下、のすべてで同じ品質の保存が行われる
+    function finishGeneration() {
         if (loadingSpan.parentNode) loadingSpan.remove();
 
         let trimmed = botContent;
 
-        // TRIM_TOKEN_01〜03 のトリミング処理
+        // トリミング処理
         if (TRIM_TOKEN_01 && TRIM_TOKEN_01.length > 0) {
             const idx = trimmed.lastIndexOf(TRIM_TOKEN_01);
             if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_01.length);
@@ -1694,22 +1667,40 @@ async function streamBotResponse(curConv) {
             if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_03.length);
         }
 
-        // 最終的なHTMLを反映
-        marked.parse(preprocessMarkdown(trimmed))
+        // 表示の更新
+        botBubble.innerHTML = marked.parse(preprocessMarkdown(trimmed));
         applyHighlightAndCopy(botBubble);
         addCollapsible(botBubble);
 
-        // 保存
-        curConv.messages.push({ role: 'assistant', content: trimmed });
+        // 履歴への保存
+        curConv.messages.push({
+             role: 'assistant', 
+             content: trimmed
+             });
         saveToStorage();
-        unblockUI();
-    };
+    }
 
-    // ② ストリーミング開始
+    // APIに渡すメッセージの構築
+    const apiMessages = [{ role: "system", content: getSystemRole() }];
+    curConv.messages.forEach(msg => {
+        if (msg.images && msg.images.length > 0) {
+            let contentArray = [];
+            if (msg.content) contentArray.push({ type: "text", text: msg.content });
+            msg.images.forEach(imgBase64 => {
+                contentArray.push({ type: "image_url", image_url: { url: imgBase64 } });
+            });
+            apiMessages.push({ role: msg.role, content: contentArray });
+        } else {
+            apiMessages.push({ role: msg.role, content: msg.content });
+        }
+    });
+
     try {
         abortController = new AbortController();
-
-        const body = {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
             model: "llama", 
             messages: apiMessages,
             stream: true,
@@ -1717,36 +1708,30 @@ async function streamBotResponse(curConv) {
             top_p: TOP_P,
             presence_penalty: PRESENCE_PENALTY,
             frequency_penalty: FREQUENCY_PENALTY
-        };
-
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            }),
             signal: abortController.signal
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP Error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP Error! status: ${response.status}`);
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let done = false;
 
-        // チャンクを処理
-        while (!done) {
+        while (true) {
             const { value, done: readerDone } = await reader.read();
-            done = readerDone;
-            if (value) {
+            if (readerDone) {
+                done = true;
+                break;
+            }
+
                 const chunk = decoder.decode(value, { stream: true });
                 const lines = chunk.split('\n');
                 
                 for (const line of lines) {
-                    // ★ 追加: [DONE] 検出時に finishGeneration() を呼び出し、ループを抜ける
                     if (line === 'data: [DONE]') {
-                        finishGeneration();
-                        return;
+                    done = true;
+                    break; // ループを抜けて、下の finishGeneration() へ
                     }
 
                     if (line.startsWith('data: ') && line !== 'data: [DONE]') {
@@ -1754,76 +1739,34 @@ async function streamBotResponse(curConv) {
                             const data = JSON.parse(line.substring(6));
                             if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
                                 botContent += data.choices[0].delta.content;
-                                // リアルタイムにマークダウンを描画
+                            // ストリーミング中のリアルタイム表示
                                 botBubble.innerHTML = marked.parse(preprocessMarkdown(botContent));
-                                 // ★ ストリーミング中も数式を試行的にレンダリング（未完成の数式は無視される）
                                 if (window.MathJax && window.MathJax.typesetPromise) {
                                     window.MathJax.typesetPromise([botBubble]);
                                 }
                             }
                         } catch (e) {
-                            console.error("JSON parse error on stream chunk", e);
+                        console.error("JSON parse error", e);
                         }
                     }
                 }
+            if (done) break;
+            if (shouldAutoScroll) chatDiv.scrollTop = chatDiv.scrollHeight;
             }
-            if (shouldAutoScroll) {
-                chatDiv.scrollTop = chatDiv.scrollHeight;
-            }
-        }
 
-
-        // ③ 終了後の処理
-        applyHighlightAndCopy(botBubble);
-        addCollapsible(botBubble);
-        
-        curConv.messages.push({ role: "assistant", content: botContent });
-        saveToStorage();
+        // ★ 正常終了または [DONE] 受信時
+        finishGeneration();
 
     } catch (err) {
         if (err.name === 'AbortError') {
-            console.log("Fetch aborted");
-            
-            // 停止ボタンを押した際（中断時）の処理
-            // ローディングインジケータを削除
-            if (loadingSpan.parentNode) loadingSpan.remove();
-
-            // 現在のbotContentを加工・保存
-            let trimmed = botContent;
-
-            // TRIM_TOKEN_01〜03 のトリミング処理（finishGenerationと同じロジック）
-            if (TRIM_TOKEN_01 && TRIM_TOKEN_01.length > 0) {
-                const idx = trimmed.lastIndexOf(TRIM_TOKEN_01);
-                if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_01.length);
-            }
-            if (TRIM_TOKEN_02 && TRIM_TOKEN_02.length > 0) {
-                const idx = trimmed.lastIndexOf(TRIM_TOKEN_02);
-                if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_02.length);
-            }
-            if (TRIM_TOKEN_03 && TRIM_TOKEN_03.length > 0) {
-                const idx = trimmed.lastIndexOf(TRIM_TOKEN_03);
-                if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_03.length);
-            }
-
-            // 最終的なHTMLを反映
-            marked.parse(preprocessMarkdown(trimmed))
-            applyHighlightAndCopy(botBubble);
-            addCollapsible(botBubble);
-
-            // 会話履歴に追加して保存
-            curConv.messages.push({ role: 'assistant', content: trimmed });
-            saveToStorage();
-            
-            // UIは finally で unblockUI が呼ばれるため、ここでは呼び出さない
-
+            console.log("Stream aborted by user");
+            // ★ 停止ボタンが押された場合も、そこまでの内容で finishGeneration を実行
+            finishGeneration();
         } else {
             console.error("Stream error:", err);
             botBubble.innerHTML += `<br><span style="color:red;">Error: ${err.message}</span>`;
         }
     } finally {
-        if (loadingSpan.parentNode) {
-            loadingSpan.remove();
-        }
         unblockUI();
         abortController = null;
     }
