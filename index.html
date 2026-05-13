@@ -273,11 +273,18 @@ body{
     padding: 2px;
     color: #666;
     font-family: var(--emoji-font), sans-serif;
+    transition: transform 0.1s ease, color 0.1s ease; /* スムーズな変化を追加 */
 }
 .action-btn:hover {
     color: #000;
     transform: scale(1.1);
 }
+.action-btn:active {
+    transform: scale(0.7); /* クリックした瞬間に少し小さくして「押し込まれた」演出にする */
+    color: #333;
+    opacity: 0.7;
+}
+
 .bubble{
   box-sizing: border-box;
   max-width:80%;
@@ -1554,7 +1561,29 @@ function renderChat(conv){
             row.appendChild(actionsDiv);
             row.appendChild(bubble);
         } else {
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'msg-actions';
+
+            const copyBotBtn = document.createElement('button');
+            copyBotBtn.className = 'action-btn';
+            copyBotBtn.innerHTML = `<img src="copy_icon.png" style="width: 1.2rem; height: 1.2rem; vertical-align: middle;">`;
+            copyBotBtn.title = 'コピーする';
+            copyBotBtn.onclick = async () => {
+                if (uiBlocker.style.display === 'block') return;
+                try {
+                    await navigator.clipboard.writeText(msg.content || "");
+                    const originalTitle = copyBotBtn.title;
+                    copyBotBtn.title = "Copied!";
+                    setTimeout(() => { copyBotBtn.title = originalTitle; }, 1500);
+                } catch (err) {
+                    console.error('Copy failed', err);
+                }
+            };
+
+            actionsDiv.appendChild(copyBotBtn);    
+
             row.appendChild(bubble);
+            row.appendChild(actionsDiv);
         }
 
         chatDiv.appendChild(row);
