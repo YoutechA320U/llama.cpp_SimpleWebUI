@@ -1736,6 +1736,7 @@ async function streamBotResponse(curConv) {
              content: trimmed
              });
         saveToStorage();
+        renderChat(curConv);
     }
 
     // APIに渡すメッセージの構築
