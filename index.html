@@ -703,7 +703,7 @@ marked.setOptions({
             <button id="attach-img-btn" title="画像を添付">🖼️</button>
             <input type="file" id="img-input" accept="image/*" multiple style="display:none;">
             <textarea id="user-input" placeholder="質問を入力…"></textarea>
-            <button id="send-btn">送信</button>
+            <button id="send-btn"><img src="send_icon.png" placeholder="送信" style="width: 20px; height: 20px;"></button>
             <button id="stop-btn">■</button>
             <button id="cancel-edit-btn" title="キャンセル">×</button>
         </div>
@@ -717,7 +717,6 @@ marked.setOptions({
    0. 定数・ストレージキー
 ------------------------------------------------------------- */
 const API_URL          = "http://localhost:8080/v1/chat/completions";
-const STOP_API_URL     = "http://localhost:8080/v1/stop";
 const STORAGE_KEY      = "llm_conversations";
 
 /* ---- LLM へ渡すパラメータ ---- */
@@ -748,7 +747,7 @@ function isMobileOS() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 /* -------------------------------------------------------------
-   1. SYSTEM_ROLE（別ファイル）
+   1. SYSTEM_ROLE
 ------------------------------------------------------------- */
 const SYSTEM_ROLE_TEMPLATE =`
 あなたは優秀なアシスタントです。
@@ -1366,17 +1365,17 @@ function preprocessMarkdown(text) {
 
     let processed = text; // <br> も改行に
 
-    //  marked.js の既知の問題（全角文字と**の隣接）への対策
-    // 「**」の直後に全角文字（日本語）が来ている場合、markedが太字として認識しない問題を解決します。
-    // 手法：一旦、太字の閉じ記号「**」を「__」に置換するか、
-    // もしくは「**」の直後に「ゼロ幅スペース(\u200B)」を挿入して、
+    //  marked.js の既知の問題（全角文字と​**​の隣接）への対策
+    // 「​**​」の直後に全角文字（日本語）が来ている場合、markedが太字として認識しない問題を解決します。
+    // 手法：一旦、太字の閉じ記号「​**​」を「__」に置換するか、
+    // もしくは「​**​」の直後に「ゼロ幅スペース(\u200B)」を挿入して、
     // 文字列としては隣接させず、見た目とパースを両立させます。
     
-    // 「**」の直後に全角文字が来るケースを検出し、間にゼロ幅スペースを挟む
+    // 「​**​」の直後に全角文字が来るケースを検出し、間にゼロ幅スペースを挟む
     // [^\u0000-\u007F] は全角文字（非ASCII文字）にマッチします
     // 閉じの <strong> の直後に全角文字がある場合、または開始の </strong> の前に全角文字がある場合
-    processed = processed.replace(/(\*\*)([^\u0000-\u007F]|`)/g, '$1\u200B$2'); // 最初の ​**​（開始記号）
-    processed = processed.replace(/([^\u0000-\u007F]|`)(\*\*)/g, '$1\u200B$2'); // 後ろの ​**（閉じ記号）
+    processed = processed.replace(/(\*\*)([^\u0000-\u007F]|`)/g, '$1\u200B$2'); // 最初の ​​**​​（開始記号）
+    processed = processed.replace(/([^\u0000-\u007F]|`)(\*\*)/g, '$1\u200B$2'); // 後ろの ​​**​（閉じ記号）
 
     // 3. 数式保護用の処理（既存ロジックの維持）
     // 既に実装されている数式ブロックの判定ロジック
@@ -1519,6 +1518,36 @@ function renderChat(conv){
                 onRerunMessage(index);
             };
 
+            // プロンプトコピーボタンを追加
+            const copyPromptBtn = document.createElement('button');
+            copyPromptBtn.className = 'action-btn';
+            copyPromptBtn.innerHTML = `<img src="copy_icon.png" style="width: 1.2rem; height: 1.2rem; vertical-align: middle;">`;
+            copyPromptBtn.title = 'コピーする';
+            copyPromptBtn.onclick = async () => {
+                if (uiBlocker.style.display === 'block') return;
+                try {
+                    await navigator.clipboard.writeText(targetMsg.content || "");
+                    const originalTitle = copyPromptBtn.title;
+                    copyPromptBtn.title = "Copied!";
+                    setTimeout(() => { copyPromptBtn.title = originalTitle; }, 1500);
+                } catch (err) {
+                    console.error('Copy failed', err);
+                }
+            };
+            // targetMsgが定義されていないため、ループ内のmsgを使用するように修正
+            copyPromptBtn.onclick = async () => {
+                if (uiBlocker.style.display === 'block') return;
+                try {
+                    await navigator.clipboard.writeText(msg.content || "");
+                    const originalTitle = copyPromptBtn.title;
+                    copyPromptBtn.title = "Copied!";
+                    setTimeout(() => { copyPromptBtn.title = originalTitle; }, 1500);
+                } catch (err) {
+                    console.error('Copy failed', err);
+                }
+            };
+
+            actionsDiv.appendChild(copyPromptBtn); // 左隣に追加
             actionsDiv.appendChild(rerunBtn);
             actionsDiv.appendChild(editBtn);
 
@@ -1842,7 +1871,7 @@ window.addEventListener('beforeunload', async (e) => {
 
     // 2️⃣ LLM に対して明示的に stop 要求を送信
     try{
-        await fetch(STOP_API_URL, {
+        await fetch(API_URL, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({})
@@ -1859,7 +1888,7 @@ stopBtn.addEventListener('click', async () => {
     
     // llama.cppサーバーへ停止信号を送信
     try {
-        await fetch(STOP_API_URL, {
+        await fetch(API_URL, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({})
