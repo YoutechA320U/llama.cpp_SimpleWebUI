@@ -663,7 +663,7 @@ marked.setOptions({
       processEscapes: true
     },
     options: {
-      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
     }
   };
 </script>
@@ -1378,7 +1378,6 @@ function preprocessMarkdown(text) {
     const lines = processed.split('\n');
     const out = [];
     let inCodeBlock = false;
-    let inMathBlock = false;
     let inTableBlock = false;
 
     for (let i = 0; i < lines.length; i++) {
@@ -1396,39 +1395,6 @@ function preprocessMarkdown(text) {
             continue;
         }
 
-        // --- 数式ブロック（$$ の開始・終了を検出）---
-        if (trimmed === '$$') {
-            inMathBlock = !inMathBlock;
-            if (inMathBlock) {
-                out.push('<p>$$');
-            } else {
-                out.push('$$</p>');
-            }
-            continue;
-        }
-
-        // $$ を含む行（例: テキスト$$数式$$）
-        const mathDelimCount = (trimmed.match(/\$\$/g) || []).length;
-        if (mathDelimCount >= 2) {
-            out.push(line);
-            continue;
-        }
-        if (mathDelimCount === 1) {
-            inMathBlock = !inMathBlock;
-            out.push(line);
-            continue;
-        }
-
-        // --- 数式ブロック内の内容処理 ---
-        if (inMathBlock) {
-            let processedLine = line
-                // \\begin / \\end などを \begin / \end に変換（行区切り記号 \\ は保持）
-                .replace(/\\([a-zA-Z{])/g, '\\$1')
-                // & を &amp; に変換（既存のHTMLエンティティは避ける）
-                .replace(/&(?![a-zA-Z]+;)/g, '&amp;');
-            out.push(processedLine);
-            continue;
-        }
 
         // --- テーブル ---
         const isTableRow = trimmed.startsWith('|');
@@ -1444,13 +1410,53 @@ function preprocessMarkdown(text) {
         out.push(line);
 
         // --- 空行挿入（数式・テーブルブロック内は除外）---
-        if (!inTableBlock && !inMathBlock && trimmed !== '' && i + 1 < lines.length && lines[i + 1].trim() !== '') {
+        if (!inTableBlock && trimmed !== '' && i + 1 < lines.length && lines[i + 1].trim() !== '') {
             out.push('');
         }
     }
     return out.join('\n');
 }
+/* -------------------------------------------------------------
+   11-0. LaTeX保護付き Markdown → HTML 変換
+------------------------------------------------------------- */
+function renderMarkdown(text) {
+    if (!text) return "";
 
+    // --- 1. LaTeX ブロックをプレースホルダーに退避 ---
+    const placeholders = [];
+
+    function stash(str) {
+        const key = `\x02LATEX${placeholders.length}\x03`;
+        placeholders.push(str);
+        return key;
+    }
+
+    let t = text;
+
+    // ディスプレイ数式: $$...$$ （複数行対応）
+    t = t.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => stash(`$$${inner}$$`));
+
+    // ディスプレイ数式: \[...\]
+    t = t.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) => stash(`\\[${inner}\\]`));
+
+    // インライン数式: \(...\)
+    t = t.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) => stash(`\\(${inner}\\)`));
+
+    // インライン数式: $...$ （$$は上で処理済みなので残った単独$）
+    t = t.replace(/(?<!\$)\$(?!\$)((?:[^$\n]|\\\$)+?)\$(?!\$)/g,
+                  (_, inner) => stash(`$${inner}$`));
+
+    // --- 2. 通常の Markdown 前処理 ---
+    t = preprocessMarkdown(t);
+
+    // --- 3. Marked でHTMLに変換 ---
+    let html = marked.parse(t);
+
+    // --- 4. プレースホルダーを LaTeX に戻す ---
+    html = html.replace(/\x02LATEX(\d+)\x03/g, (_, i) => placeholders[+i]);
+
+    return html;
+}
 /* -------------------------------------------------------------
    11. チャット表示（履歴の再描画）
 ------------------------------------------------------------- */
@@ -1481,7 +1487,7 @@ function renderChat(conv){
         // テキストを描画
         if (msg.content) {
             const textDiv = document.createElement('div');
-            textDiv.innerHTML = marked.parse(preprocessMarkdown(msg.content))
+            textDiv.innerHTML = renderMarkdown(msg.content)
             //console.log("=== preprocessINPUT ===\n", JSON.stringify(marked.parse(preprocessMarkdown(msg.content))));
             bubble.appendChild(textDiv);
         }
@@ -1695,7 +1701,7 @@ async function streamBotResponse(curConv) {
 
     // ★ 終了処理を一つの関数に集約
     // これにより、[DONE]受信、自然終了、停止ボタン押下、のすべてで同じ品質の保存が行われる
-    function finishGeneration() {
+    async function finishGeneration() {
         if (loadingSpan.parentNode) loadingSpan.remove();
 
         let trimmed = botContent;
@@ -1714,9 +1720,11 @@ async function streamBotResponse(curConv) {
             if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_03.length);
         }
 
-        // 表示の更新
-        botBubble.innerHTML = marked.parse(preprocessMarkdown(trimmed));
-        applyHighlightAndCopy(botBubble);
+        // 1. 最終的な表示を確定（Markdown変換）
+        botBubble.innerHTML = renderMarkdown(trimmed);
+
+         // 2. ここで「一度だけ」ハイライトとMathJaxを実行
+        await applyHighlightAndCopy(botBubble);
         addCollapsible(botBubble);
 
         // 履歴への保存
@@ -1788,10 +1796,11 @@ async function streamBotResponse(curConv) {
                             if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
                                 botContent += data.choices[0].delta.content;
                             // ストリーミング中のリアルタイム表示
-                                botBubble.innerHTML = marked.parse(preprocessMarkdown(botContent));
-                                if (window.MathJax && window.MathJax.typesetPromise) {
-                                    window.MathJax.typesetPromise([botBubble]);
-                                }
+                            botBubble.innerHTML = renderMarkdown(botContent);
+                            // ストリーミング中のリアルタイム表示でMathJaxは超重くなるのでやらない方がいい
+                            //if (window.MathJax && window.MathJax.typesetPromise) {
+                            //    window.MathJax.typesetPromise([botBubble]);
+                            //}
                             }
                         } catch (e) {
                         console.error("JSON parse error", e);
