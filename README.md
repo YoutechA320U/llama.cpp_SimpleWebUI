@@ -44,12 +44,16 @@
 
 - **APIエンドポイント**:
   - `API_URL`: `llama.cpp` サーバーのチャット補完エンドポイント（デフォルト: `http://localhost:8080/v1/chat/completions`）
-  - `STOP_API_URL`: 生成停止用エンドポイント（デフォルト: `http://localhost:8080/v1/stop`）
+  - `STORAGE_KEY`: LocalStorageの名称
 - **生成パラメータ**:
   - `TEMPERATURE`: 生成の多様性（0.8）
   - `TOP_P`: Nucleus sampling（0.95）
+  - `PRESENCE_PENALTY` : 過去に同じトークンが現れたか否かによって、一定のペナルティ(0.0)
+  - `FREQUENCY_PENALTY` : 過去に同じトークンが現れた回数が増えれば増えるほど、大きなペナルティ(0.0)
 - **システムプロンプト**:
-  - `SYSTEM_ROLE_TEMPLATE.js`: AIの振る舞いを定義するテンプレート。
+  - `SYSTEM_ROLE_TEMPLATE`: AIの振る舞いを定義するテンプレート。
+- **その他**:
+  - `TRIM_TOKEN_01~03`: Reasoningモデルなどでトリミングする文字を指定して出力完了後Reasoning部分をカットするのに使います
 
 ##　技術スタック
 
