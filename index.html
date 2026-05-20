@@ -638,12 +638,9 @@ body.sidebar-closed #sidebar-toggle {
 
 <!-- ★ Markdown パーサ (marked.js) を CDN から読み込み -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<!-- ★ 数式保護ライブラリを追加 -->
-<script src="https://cdn.jsdelivr.net/npm/marked-math/lib/index.umd.js"></script>
 
 <script>
 /* ここで marked の設定を行う */
-marked.use(markedMath()); // 数式保護を有効化
 marked.setOptions({
     gfm: true,          // GitHub Flavored Markdown (テーブル等)
     tables: true,       // テーブルを有効化（念のため）
@@ -732,22 +729,14 @@ const TOP_P         = 0.95;   // nucleus sampling の上限確率
 const PRESENCE_PENALTY= 0.0;   // 過去に同じトークンが現れたか否かによって、一定のペナルティ
 const FREQUENCY_PENALTY= 0.0;//過去に同じトークンが現れた回数が増えれば増えるほど、大きなペナルティ
 
-/* ---- 特殊トークン定義（通常llama.cppは自動でチャットテンプレートが適用されます。必要に応じて追加してください。） ---- */
-const SYSTEM_BOS_TOKEN     = "";
-const SYSTEM_EOS_TOKEN     = "";
-const USER_BOS_TOKEN       = "";
-const USER_EOS_TOKEN       = "";
-const ASSISTANT_BOS_TOKEN  = "";
-const ASSISTANT_EOS_TOKEN  = "";
-
-// スクロール制御用フラグ
-let shouldAutoScroll = true;
-let isUserScrolling = false;
-
 //* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
 const TRIM_TOKEN_01 = "";
 const TRIM_TOKEN_02 = "";
 const TRIM_TOKEN_03 = "";
+
+// スクロール制御用フラグ
+let shouldAutoScroll = true;
+let isUserScrolling = false;
 
 /* モバイルOSかどうかを判定する関数 */
 function isMobileOS() {
