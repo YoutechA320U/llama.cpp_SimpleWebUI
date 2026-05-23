@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>llama.cpp simple WebUI (Multimodal)</title>
+<title>llama.cpp simple WebUI</title>
 
 <!-- ★ Noto Emoji を Google Fonts から読み込む -->
 <link href="https://fonts.googleapis.com/css2?family=Noto+Emoji&display=swap" rel="stylesheet">
@@ -663,7 +663,7 @@ marked.setOptions({
       processEscapes: true
     },
     options: {
-      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
     }
   };
 </script>
@@ -808,7 +808,6 @@ function blockUI(){
 
     // サイドバー本体をロック
     sidebarEl.classList.add('locked');
-    
 }
 
 function unblockUI(){
@@ -824,10 +823,10 @@ function unblockUI(){
 
     // サイドバーのロック解除
     sidebarEl.classList.remove('locked');
-    
 }
+    
 /* -------------------------------------------------------------
-   3-1. USER-INPUT自動リサイズ
+   4. USER-INPUT自動リサイズ
 ------------------------------------------------------------- */
 const tx = document.getElementById('user-input');
 function resizeUserInput() {
@@ -848,7 +847,7 @@ if (isMobileOS())
 tx.addEventListener('input', resizeUserInput);
 
 /* -------------------------------------------------------------
-   4. データ構造と状態管理
+   5. データ構造と状態管理
 ------------------------------------------------------------- */
 let conversations = [];
 let curConvId = null;
@@ -864,7 +863,7 @@ let isSidebarOpen = false;
 let currentPendingImages = [];
 
 /* -------------------------------------------------------------
-   4-1. 画像選択・プレビュー処理
+   6. 画像選択・プレビュー処理
 ------------------------------------------------------------- */
 attachImgBtn.addEventListener('click', () => {
     imgInput.click();
@@ -942,7 +941,7 @@ function renderPendingImages() {
     });
 }
 /* -------------------------------------------------------------
-   4-2. ペースト・ドラッグアンドドロップ処理
+   7. ペースト・ドラッグアンドドロップ処理
 ------------------------------------------------------------- */
 
 // --- ペーストイベント (Ctrl+V) ---
@@ -991,7 +990,7 @@ function processImageFile(file) {
     reader.readAsDataURL(file);
 }
 /* -------------------------------------------------------------
-   5. ローカルストレージ操作
+   8. ローカルストレージ操作
 ------------------------------------------------------------- */
 function loadFromStorage(){
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1140,7 +1139,7 @@ importFileInput.addEventListener('change', async (e) => {
 
 
 /* -------------------------------------------------------------
-   6. サイドバー描画
+   9. サイドバー描画
 ------------------------------------------------------------- */
 function renderSidebar(){
     convListEl.innerHTML = "";
@@ -1239,7 +1238,7 @@ function handleDragEnd() {
 }
 
 /* -------------------------------------------------------------
-   7. 会話操作
+   10. 会話操作
 ------------------------------------------------------------- */
 function createNewConversation(){
     const now = new Date();
@@ -1281,7 +1280,7 @@ function deleteConversation(id){
 }
 
 /* -------------------------------------------------------------
-   8. タイトル更新
+   11. タイトル更新
 ------------------------------------------------------------- */
 function updateTitle(){
     const curConv = conversations.find(c => c.id===curConvId);
@@ -1293,7 +1292,7 @@ function updateTitle(){
 }
 
 /* -------------------------------------------------------------
-   9. ユーティリティ
+   12. ユーティリティ
 ------------------------------------------------------------- */
 async function applyHighlightAndCopy(container){
     // 1. コードブロックのハイライトとコピーボタン
@@ -1353,7 +1352,7 @@ function addCollapsible(bubble){
     });
 }
 /* -------------------------------------------------------------
-   10. Markdown 前処理
+   13. Markdown 前処理
 ------------------------------------------------------------- */
 function preprocessMarkdown(text) {
     //console.log("=== INPUT ===\n", JSON.stringify(text));
@@ -1378,6 +1377,7 @@ function preprocessMarkdown(text) {
     const lines = processed.split('\n');
     const out = [];
     let inCodeBlock = false;
+    let inMathBlock = false;
     let inTableBlock = false;
 
     for (let i = 0; i < lines.length; i++) {
@@ -1395,6 +1395,39 @@ function preprocessMarkdown(text) {
             continue;
         }
 
+        // --- 数式ブロック（$$ の開始・終了を検出）---
+        if (trimmed === '$$') {
+            inMathBlock = !inMathBlock;
+            if (inMathBlock) {
+                out.push('<p>$$');
+            } else {
+                out.push('$$</p>');
+            }
+            continue;
+        }
+
+        // $$ を含む行（例: テキスト$$数式$$）
+        const mathDelimCount = (trimmed.match(/\$\$/g) || []).length;
+        if (mathDelimCount >= 2) {
+            out.push(line);
+            continue;
+        }
+        if (mathDelimCount === 1) {
+            inMathBlock = !inMathBlock;
+            out.push(line);
+            continue;
+        }
+
+        // --- 数式ブロック内の内容処理 ---
+        if (inMathBlock) {
+            let processedLine = line
+                // \\begin / \\end などを \begin / \end に変換（行区切り記号 \\ は保持）
+                .replace(/\\([a-zA-Z{])/g, '\\$1')
+                // & を &amp; に変換（既存のHTMLエンティティは避ける）
+                .replace(/&(?![a-zA-Z]+;)/g, '&amp;');
+            out.push(processedLine);
+            continue;
+        }
 
         // --- テーブル ---
         const isTableRow = trimmed.startsWith('|');
@@ -1417,7 +1450,7 @@ function preprocessMarkdown(text) {
     return out.join('\n');
 }
 /* -------------------------------------------------------------
-   11-0. LaTeX保護付き Markdown → HTML 変換
+   14. LaTeX保護付き Markdown → HTML 変換
 ------------------------------------------------------------- */
 function renderMarkdown(text) {
     if (!text) return "";
@@ -1458,7 +1491,7 @@ function renderMarkdown(text) {
     return html;
 }
 /* -------------------------------------------------------------
-   11. チャット表示（履歴の再描画）
+   15. チャット表示（履歴の再描画）
 ------------------------------------------------------------- */
 function renderChat(conv){
     chatDiv.innerHTML = "";
@@ -1488,7 +1521,7 @@ function renderChat(conv){
         if (msg.content) {
             const textDiv = document.createElement('div');
             textDiv.innerHTML = renderMarkdown(msg.content)
-            //console.log("=== preprocessINPUT ===\n", JSON.stringify(marked.parse(preprocessMarkdown(msg.content))));
+            //console.log("=== preprocessINPUT ===\n", JSON.stringify(renderMarkdown(msg.content)));
             bubble.appendChild(textDiv);
         }
 
@@ -1587,7 +1620,7 @@ function renderChat(conv){
 }
 
 /* -------------------------------------------------------------
-   12. 編集・再実行のロジック
+   16. 編集・再実行のロジック
 ------------------------------------------------------------- */
 function onEditMessage(index) {
     const curConv = conversations.find(c => c.id === curConvId);
@@ -1626,7 +1659,7 @@ userInput.addEventListener('keydown', e=>{
 });
 
 /* -------------------------------------------------------------
-   13. 編集キャンセルロジック
+   17. 編集キャンセルロジック
 ------------------------------------------------------------- */
 function cancelEdit(){
     if (!editState.active) return;
@@ -1640,7 +1673,7 @@ function cancelEdit(){
 }
 
 /* -------------------------------------------------------------
-   14. メッセージ送信ロジック
+   18. メッセージ送信ロジック
 ------------------------------------------------------------- */
 async function handleUserSubmit(){
     const prompt = userInput.value.trim();
@@ -1678,7 +1711,7 @@ async function handleUserSubmit(){
 }
 
 /* -------------------------------------------------------------
-   15. ボット応答ストリーミング (修正・補完版)
+   19. ボット応答ストリーミング
 ------------------------------------------------------------- */
 let abortController = null;
 
@@ -1830,7 +1863,7 @@ async function streamBotResponse(curConv) {
 }
 
 /* -------------------------------------------------------------
-   16. UI イベントバインド
+   20. UI イベントバインド
 ------------------------------------------------------------- */
 sendBtn.addEventListener('click', handleUserSubmit);
 userInput.addEventListener('keydown', e=>{
@@ -1850,7 +1883,7 @@ userInput.addEventListener('focus', () => {
 });
 
 /* -------------------------------------------------------------
-   サイドバーのトグル機能
+ 21. サイドバーのトグル機能
 ------------------------------------------------------------- */
 function toggleSidebar() {
     isSidebarOpen = !isSidebarOpen;
@@ -1889,7 +1922,7 @@ window.addEventListener('click', (e) => {
 });
 
 /* -------------------------------------------------------------
-   17. ページ離脱（リロード・閉じる）時に /v1/stop を呼び出す
+   22. ページ離脱（リロード・閉じる）時に /v1/stop を呼び出す
 ------------------------------------------------------------- */
 window.addEventListener('beforeunload', async (e) => {
     // 1️⃣ 可能なら streaming を abort
@@ -1943,7 +1976,7 @@ chatDiv.addEventListener('scroll', () => {
     }
 });
 /* -------------------------------------------------------------
-   初期化処理
+   23. 初期化処理
 ------------------------------------------------------------- */
 window.addEventListener('DOMContentLoaded', () => {
     loadFromStorage();
