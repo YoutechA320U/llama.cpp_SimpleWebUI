@@ -52,14 +52,17 @@
   - `FREQUENCY_PENALTY` : 過去に同じトークンが現れた回数が増えれば増えるほど、大きなペナルティ(0.0)
 - **システムプロンプト**:
   - `SYSTEM_ROLE_TEMPLATE`: AIの振る舞いを定義するテンプレート。
+- **画像リサイズ機能**:
+  - `MAX_WIDTH``MAX_HEIGHT`: LLMへの負荷を抑えるため、クライアント側で画像を指定サイズにリサイズして送信します。
 - **その他**:
-  - `TRIM_TOKEN_01~03`: Reasoningモデルなどでトリミングする文字を指定して出力完了後Reasoning部分をカットするのに使います
+  - `TRIM_TOKEN_01~03`: Reasoningモデルなどでトリミングする文字を指定して、出力完了後Reasoning部分をカットするのに使います
 
 ##　技術スタック
 
 - **Frontend**: HTML5, CSS3, JavaScript (Vanilla JS)
 - **Markdown Parser**: [marked.js](https://marked.js.org/)
 - **Code Highlighting**: [highlight.js](https://highlightjs.org/)
+- **LaTeX**: [tex-mml-chtml.js](https://www.mathjax.org/)
 - **Fonts**: Google Fonts (Noto Emoji)
 
 ##  ライセンス
@@ -69,5 +72,5 @@
 ---
 
 ### その他Tips
-- **画像リサイズ機能**: サーバーへの負荷と転送量を抑えるため、クライアント側で画像を最大400pxにリサイズして送信する処理を組み込んでいます。
 - **UIブロッカー**: 生成中は誤操作を防ぐため、サイドバーや入力エリアに透明なレイヤー（UI Blocker）を被せて出力停止とスクロール以外の操作を制限しています。
+- **完全ローカル化したい場合**: 複数の外部ライブラリを使用しているためわずかに通信が発生します。完全ローカル化したい場合はライブラリをダウンロードした上でパスを設定してCORS制限に引っかからないようサーバーを用意する必要があります。
