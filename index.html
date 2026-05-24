@@ -729,10 +729,14 @@ const TOP_P         = 0.95;   // nucleus sampling の上限確率
 const PRESENCE_PENALTY= 0.0;   // 過去に同じトークンが現れたか否かによって、一定のペナルティ
 const FREQUENCY_PENALTY= 0.0;//過去に同じトークンが現れた回数が増えれば増えるほど、大きなペナルティ
 
-//* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
+/* トリミング対象のトークン（必要に応じて追加してください。空だと何もトリミングしません。） */
 const TRIM_TOKEN_01 = "";
 const TRIM_TOKEN_02 = "";
 const TRIM_TOKEN_03 = "";
+
+/* 画像を読み込んだ後リサイズする幅と高さ（環境に合わせて調整してください。大きすぎると読み込めず、小さすぎると上手く認識できません） */
+const MAX_WIDTH = 400;
+const MAX_HEIGHT = 400;
 
 // スクロール制御用フラグ
 let shouldAutoScroll = true;
@@ -791,6 +795,7 @@ const attachImgBtn      = document.getElementById('attach-img-btn');
 const imgInput          = document.getElementById('img-input');
 const imagePreviewArea  = document.getElementById('image-preview-area');
 
+
 /* -------------------------------------------------------------
    3. UI ロック／アンロック
 ------------------------------------------------------------- */
@@ -836,7 +841,7 @@ function resizeUserInput() {
     {
         tx.style.minHeight = '50px';
         tx.style.height = '50px';
-        tx.style.maxHeight = '300px';
+        tx.style.MAX_HEIGHT = '300px';
     tx.style.height = tx.scrollHeight + 'px';
 }
 }
@@ -887,15 +892,13 @@ function resizeImage(dataUrl) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-            const maxWidth = 400;
-            const maxHeight = 400;
 
             let width = img.width;
             let height = img.height;
 
             // アスペクト比を維持しながら、長辺が指定サイズを超える場合に縮小する
-            if (width > maxWidth || height > maxHeight) {
-                let ratio = Math.min(maxWidth / width, maxHeight / height);
+            if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+                let ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
                 width = width * ratio;
                 height = height * ratio;
             }
