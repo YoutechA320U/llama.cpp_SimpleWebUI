@@ -5,17 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>llama.cpp simple WebUI</title>
 
-<!-- ★ Noto Emoji を Google Fonts から読み込む -->
-<link href="https://fonts.googleapis.com/css2?family=Noto+Emoji&display=swap" rel="stylesheet">
-
 <style>
 /* -------------------------------------------------------------
    0 ルート設定
 ------------------------------------------------------------- */
 :root{
-  /* ---- 絵文字フォント ---- */
-  --emoji-font: "Noto Emoji";
-
   /* ---- バブル全体 ---- */
   --bubble-bg-user: #e0f7fa;
   --bubble-bg-bot : #fff;
@@ -707,7 +701,7 @@ marked.setOptions({
             <button id="attach-img-btn" title="画像を添付">🖼️</button>
             <input type="file" id="img-input" accept="image/*" multiple style="display:none;">
             <textarea id="user-input" placeholder="質問を入力…"></textarea>
-            <button id="send-btn"><img src="send_icon.png" placeholder="送信" style="width: 20px; height: 20px;"></button>
+            <button id="send-btn"title="送信">➤</button>
             <button id="stop-btn">■</button>
             <button id="cancel-edit-btn" title="キャンセル">×</button>
         </div>
@@ -795,7 +789,6 @@ const attachImgBtn      = document.getElementById('attach-img-btn');
 const imgInput          = document.getElementById('img-input');
 const imagePreviewArea  = document.getElementById('image-preview-area');
 
-
 /* -------------------------------------------------------------
    3. UI ロック／アンロック
 ------------------------------------------------------------- */
@@ -841,7 +834,7 @@ function resizeUserInput() {
     {
         tx.style.minHeight = '50px';
         tx.style.height = '50px';
-        tx.style.MAX_HEIGHT = '300px';
+        tx.style.maxHeight = '300px';
     tx.style.height = tx.scrollHeight + 'px';
 }
 }
@@ -1446,7 +1439,7 @@ function preprocessMarkdown(text) {
         out.push(line);
 
         // --- 空行挿入（数式・テーブルブロック内は除外）---
-        if (!inTableBlock && trimmed !== '' && i + 1 < lines.length && lines[i + 1].trim() !== '') {
+        if (!inTableBlock && !inMathBlock && trimmed !== '' && i + 1 < lines.length && lines[i + 1].trim() !== '') {
             out.push('');
         }
     }
@@ -1559,7 +1552,7 @@ function renderChat(conv){
             // プロンプトコピーボタンを追加
             const copyPromptBtn = document.createElement('button');
             copyPromptBtn.className = 'action-btn';
-            copyPromptBtn.innerHTML = `<img src="copy_icon.png" style="width: 1.2rem; height: 1.2rem; vertical-align: middle;">`;
+            copyPromptBtn.innerHTML = '📋';
             copyPromptBtn.title = 'コピーする';
             copyPromptBtn.onclick = async () => {
                 if (uiBlocker.style.display === 'block') return;
@@ -1597,7 +1590,7 @@ function renderChat(conv){
 
             const copyBotBtn = document.createElement('button');
             copyBotBtn.className = 'action-btn';
-            copyBotBtn.innerHTML = `<img src="copy_icon.png" style="width: 1.2rem; height: 1.2rem; vertical-align: middle;">`;
+            copyBotBtn.innerHTML = '📋';
             copyBotBtn.title = 'コピーする';
             copyBotBtn.onclick = async () => {
                 if (uiBlocker.style.display === 'block') return;
