@@ -627,6 +627,18 @@ body.sidebar-closed #sidebar-toggle {
 #sidebar.collapsed #clear-history-wrapper {
     display: none; /* 畳まれている時は隠す（またはアイコンのみにする） */
 }
+/* --- 768px未満でのオーバーレイ設定 --- */
+@media (max-width: 767px) {
+    #sidebar:not(.collapsed) {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        z-index: 2001; /* チャット入力エリア(2000)より上に表示 */
+        width: var(--sidebar-width) !important;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+    }
+}
 
 </style>
 
@@ -856,6 +868,7 @@ let editState = {
 };
 
 let isSidebarOpen = false;
+let desktopSidebarWasOpen = true; // デスクトップでの展開状態を記憶する変数
 
 // 添付予定の画像（Base64形式の文字列の配列）
 let currentPendingImages = [];
@@ -1885,7 +1898,38 @@ function toggleSidebar() {
     isSidebarOpen = !isSidebarOpen;
     sidebarEl.classList.toggle('collapsed', !isSidebarOpen);
     bodyEl.classList.toggle('sidebar-closed', !isSidebarOpen);
+ 
+    // デスクトップでのリサイズ用に現在の状態を記憶
+    if (!isMobileOS()) {
+        desktopSidebarWasOpen = isSidebarOpen;
+    }
 }
+
+// リサイズ時の挙動制御
+window.addEventListener('resize', () => {
+    const width = window.innerWidth;
+    const mobile = isMobileOS();
+
+    if (!mobile) {
+        if (width < 768) {
+            // 幅が768px未満になった時、展開していたら閉じて記憶する
+            if (isSidebarOpen) {
+                desktopSidebarWasOpen = true; 
+                isSidebarOpen = false;
+                sidebarEl.classList.add('collapsed');
+                bodyEl.classList.add('sidebar-closed');
+            }
+        } else {
+            // 幅が768px以上になった時、記憶していたら再度展開する
+            if (desktopSidebarWasOpen) {
+                isSidebarOpen = true;
+                sidebarEl.classList.remove('collapsed');
+                bodyEl.classList.remove('sidebar-closed');
+                desktopSidebarWasOpen = false;
+            }
+        }
+    }
+});
 
 // サイドバー内のハンバーガーボタン
 sidebarToggleBtn.addEventListener('click', toggleSidebar);
@@ -1977,14 +2021,16 @@ chatDiv.addEventListener('scroll', () => {
 window.addEventListener('DOMContentLoaded', () => {
     loadFromStorage();
 
-    if (isMobileOS()) { // ←修正
-        // モバイルOSの場合は閉じた状態を維持
+    if (isMobileOS()) {
+        isSidebarOpen = false; // モバイルは閉じた状態
     } else {
-        // モバイルOSではない場合は、デフォルトで開く
-    sidebarEl.classList.remove('collapsed');
-    bodyEl.classList.remove('sidebar-closed');
+        isSidebarOpen = true;  // デスクトップは開いた状態
+        sidebarEl.classList.remove('collapsed');
+        bodyEl.classList.remove('sidebar-closed');
     }
     
+    desktopSidebarWasOpen = isSidebarOpen; // 初期状態を記憶
+
     renderSidebar();
     const cur = conversations.find(c=>c.id===curConvId);
     renderChat(cur);
