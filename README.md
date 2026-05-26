@@ -63,7 +63,6 @@
 - **Markdown Parser**: [marked.js](https://marked.js.org/)
 - **Code Highlighting**: [highlight.js](https://highlightjs.org/)
 - **LaTeX**: [tex-mml-chtml.js](https://www.mathjax.org/)
-- **Fonts**: Google Fonts (Noto Emoji)
 
 ##  ライセンス
 
