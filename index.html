@@ -1907,27 +1907,12 @@ function toggleSidebar() {
 
 // リサイズ時の挙動制御
 window.addEventListener('resize', () => {
-    const width = window.innerWidth;
-    const mobile = isMobileOS();
-
-    if (!mobile) {
-        if (width < 768) {
-            // 幅が768px未満になった時、展開していたら閉じて記憶する
-            if (isSidebarOpen) {
-                desktopSidebarWasOpen = true; 
-                isSidebarOpen = false;
-                sidebarEl.classList.add('collapsed');
-                bodyEl.classList.add('sidebar-closed');
-            }
-        } else {
-            // 幅が768px以上になった時、記憶していたら再度展開する
-            if (desktopSidebarWasOpen) {
-                isSidebarOpen = true;
-                sidebarEl.classList.remove('collapsed');
-                bodyEl.classList.remove('sidebar-closed');
-                desktopSidebarWasOpen = false;
-            }
-        }
+    if (isSidebarOpen) {
+        sidebarEl.classList.remove('collapsed');
+        bodyEl.classList.remove('sidebar-closed');
+    } else {
+        sidebarEl.classList.add('collapsed');
+        bodyEl.classList.add('sidebar-closed');
     }
 });
 
@@ -1948,13 +1933,15 @@ sidebarToggleMobileBtn.addEventListener('click', () => {
 });
 /* モバイルOSでサイドバー以外をタップした時に閉じる */
 window.addEventListener('click', (e) => {
-    if (isMobileOS() && isSidebarOpen) { 
+    // モバイルOS判定ではなく、画面幅768px以下で判定
+    if (window.innerWidth <= 768 && isSidebarOpen) { 
         // クリックされた要素がサイドバーの中ではなく、かつモバイル用トグルボタンでもない場合
         if (!sidebarEl.contains(e.target) && e.target !== sidebarToggleMobileBtn) {
             isSidebarOpen = false;
             sidebarEl.classList.add('collapsed');
             bodyEl.classList.add('sidebar-closed');
         }
+        // 編集中のキャンセル処理
         if (editState.active && !document.getElementById('input-container').contains(e.target)) {
             cancelEdit();
         }
