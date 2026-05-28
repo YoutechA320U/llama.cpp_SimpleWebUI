@@ -2008,7 +2008,7 @@ chatDiv.addEventListener('scroll', () => {
 window.addEventListener('DOMContentLoaded', () => {
     loadFromStorage();
 
-    if (isMobileOS()) {
+    if (isMobileOS()|| window.innerWidth <= 768) {
         isSidebarOpen = false; // モバイルは閉じた状態
     } else {
         isSidebarOpen = true;  // デスクトップは開いた状態
