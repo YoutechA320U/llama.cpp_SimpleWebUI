@@ -221,7 +221,10 @@ body{
     font-size:0.85em;
     color:#555;
 }
-
+/* サイドバーが閉じている時、ハンバーガーボタンとタイトル横の会話名が重ならないように余白を確保 */
+body.sidebar-closed #conv-title {
+    padding-left: 30px;
+}  
 /* -------------------------------------------------------------
    2. チャット領域
 ------------------------------------------------------------- */
@@ -529,11 +532,12 @@ body{
    6‑1. サイドバーがロック中の見た目
 ------------------------------------------------------------- */
 #sidebar.locked{
-    /* 色味は不透明度を0.5にすることで薄くする */
-    opacity: 0.5;
-    /* クリック等の操作を受け付けない */
+    background-color: #e0e0e0 !important; /* 統一したグレーの背景色 */
+    color: #888 !important;               /* 統一した薄い文字色 */
+    border-color: #ccc !important;        /* 統一した薄い枠線 */
     pointer-events: none;
-    /* スムーズに変化させる */
+    cursor: not-allowed;                  /* 「禁止マーク」のカーソルにする */
+    opacity: 1;                           /* ボタンの不透明度変化をリセット（任意） */
 }
 
 #sidebar-toggle {
@@ -547,10 +551,7 @@ body.sidebar-closed #sidebar {
     overflow: hidden;
     border-right: none;
 }
-/* サイドバーが閉じている時、ハンバーガーボタンとタイトルが重ならないように余白を確保 */
-body.sidebar-closed #main {
-    padding-left: 50px;
-}  
+
 /* ハンバーガーボタンだけは画面左上に固定表示（開閉切り替え用） */
 body.sidebar-closed #sidebar-toggle {
     position: fixed;
@@ -642,7 +643,15 @@ body.sidebar-closed #sidebar-toggle {
         box-shadow: 2px 0 10px rgba(0,0,0,0.2);
     }
 }
-
+/* 無効化（disabled）時のスタイルを統一する */
+#attach-img-btn:disabled,
+#user-input:disabled {
+    background-color: #e0e0e0 !important; /* 統一したグレーの背景色 */
+    color: #888 !important;               /* 統一した薄い文字色 */
+    border-color: #ccc !important;        /* 統一した薄い枠線 */
+    cursor: not-allowed;                  /* 「禁止マーク」のカーソルにする */
+    opacity: 1;                           /* ボタンの不透明度変化をリセット（任意） */
+}
 </style>
 
 <!-- ★ Markdown パーサ (marked.js) を CDN から読み込み -->
