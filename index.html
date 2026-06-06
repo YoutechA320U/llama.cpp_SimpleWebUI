@@ -64,37 +64,38 @@ body{
 
 /* サイドバーのトグルボタン */
 #sidebar-toggle {
+    display: flex;           /* text-alignの代わりにflexで中央寄せにする */
+    align-items: center;
+    justify-content: center;
     background: none;
     border: none;
     font-size: 1.3rem;
     cursor: pointer;
-    padding: 12px 16px;
+    padding: 12px;           /* paddingを統一 */
     color: #333;
     flex-shrink: 0;
+    width: 100%;             /* 幅をいっぱいにする */
+    box-sizing: border-box;  /* paddingを含めた幅計算にする */
 }
 #sidebar-toggle:hover {
     color: #1976d2;
 }
-#sidebar.collapsed #sidebar-toggle {
-    text-align: center;
-    padding: 12px 12px;
-}
 
-#sidebar h3{
-    margin:0;
-    padding:0 16px 12px;
-    background:#f0f0f0;
-    font-size:1.0rem;
-    border-bottom:1px solid #ddd;
+#sidebar h3 {
+    margin: 0;
+    padding: 12px;           /* paddingを統一 */
+    background: #f0f0f0;
+    font-size: 1.0rem;
+    border-bottom: 1px solid #ddd;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    box-sizing: border-box;
 }
 
 /* サイドバーが畳まれたとき、h3のテキストを隠し、アイコンのみ表示させる */
 #sidebar.collapsed h3 {
     text-align: center;
-    padding: 12px 12px;
 }
 
 /* ボタンを横並びにするラッパー */
@@ -219,7 +220,6 @@ body{
     font-weight:normal;
     font-size:0.85em;
     color:#555;
-    margin-left:1.8rem;
 }
 
 /* -------------------------------------------------------------
@@ -547,14 +547,17 @@ body.sidebar-closed #sidebar {
     overflow: hidden;
     border-right: none;
 }
-    
+/* サイドバーが閉じている時、ハンバーガーボタンとタイトルが重ならないように余白を確保 */
+body.sidebar-closed #main {
+    padding-left: 50px;
+}  
 /* ハンバーガーボタンだけは画面左上に固定表示（開閉切り替え用） */
 body.sidebar-closed #sidebar-toggle {
     position: fixed;
     left: 0;
     top: 0;
     width: auto;
-    padding: 12px 16px;
+    padding: 12px 12px;
     background: #fff;
     border-right: 1px solid #ddd;
     z-index: 1002;
