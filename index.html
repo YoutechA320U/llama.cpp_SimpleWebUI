@@ -1367,33 +1367,18 @@ function addCollapsible(bubble){
    13. Markdown 前処理
 ------------------------------------------------------------- */
 function preprocessMarkdown(text) {
-    //console.log("=== INPUT ===\n", JSON.stringify(text));
     if (!text) return "";
 
-    let processed = text; // <br> も改行に
-
-    //  marked.js の既知の問題（全角文字と**の隣接）への対策
-    // 「**」の直後に全角文字（日本語）が来ている場合、markedが太字として認識しない問題を解決します。
-    // 手法：一旦、太字の閉じ記号「**」を「__」に置換するか、
-    // もしくは「**」の直後に「ゼロ幅スペース(\u200B)」を挿入して、
-    // 文字列としては隣接させず、見た目とパースを両立させます。
-    
-    // 「**」の直後に全角文字が来るケースを検出し、間にゼロ幅スペースを挟む
-    // [^\u0000-\u007F] は全角文字（非ASCII文字）にマッチします
-    // 閉じの <strong> の直後に全角文字がある場合、または開始の </strong> の前に全角文字がある場合
-    processed = processed.replace(/(\*\*)([^\u0000-\u007F]|`)/g, '$1\u200B$2'); // 最初の **（開始記号）
-    processed = processed.replace(/([^\u0000-\u007F]|`)(\*\*)/g, '$1\u200B$2'); // 後ろの **（閉じ記号）
-
-    // 3. 数式保護用の処理（既存ロジックの維持）
-    // 既に実装されている数式ブロックの判定ロジック
-    const lines = processed.split('\n');
+    // 1. 元のテキストを行ごとに分割
+    // (冒頭での一括置換は行わず、ループ内で制御します)
+    const lines = text.split('\n');
     const out = [];
     let inCodeBlock = false;
     let inMathBlock = false;
     let inTableBlock = false;
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        let line = lines[i]; // 置換ができるよう let で宣言
         const trimmed = line.trim();
 
         // --- コードブロック ---
@@ -1402,10 +1387,18 @@ function preprocessMarkdown(text) {
             inCodeBlock = !inCodeBlock;
             continue;
         }
+
+        // コードブロック内であれば、置換処理をスキップしてそのまま出力
         if (inCodeBlock) {
             out.push(line);
             continue;
         }
+
+        // --- ゼロ幅スペースの挿入 (コードブロック外のみに適用) ---
+        // marked.js の既知の問題（全角文字と**の隣接）への対策
+        // 「**」の直後に全角文字またはバッククォートが来る場合に挿入
+        line = line.replace(/(\*\*)([^\u0000-\u007F]|`)/g, '$1\u200B$2');
+        line = line.replace(/([^\u0000-\u007F]|`)(\*\*)/g, '$1\u200B$2');
 
         // --- 数式ブロック（$$ の開始・終了を検出）---
         if (trimmed === '$$') {
@@ -1433,9 +1426,9 @@ function preprocessMarkdown(text) {
         // --- 数式ブロック内の内容処理 ---
         if (inMathBlock) {
             let processedLine = line
-                // \\begin / \\end などを \begin / \end に変換（行区切り記号 \\ は保持）
+                // \\begin / \\end などを \begin / \end に変換
                 .replace(/\\([a-zA-Z{])/g, '\\$1')
-                // & を &amp; に変換（既存のHTMLエンティティは避ける）
+                // & を &amp; に変換
                 .replace(/&(?![a-zA-Z]+;)/g, '&amp;');
             out.push(processedLine);
             continue;
@@ -1467,38 +1460,56 @@ function preprocessMarkdown(text) {
 function renderMarkdown(text) {
     if (!text) return "";
 
-    // --- 1. LaTeX ブロックをプレースホルダーに退避 ---
+    // プレースホルダ用の特殊な文字列（HTMLエンティティ化されにくいもの）
+    // \x02 (STX) と \x03 (ETX) を使用
+    const STX = "\x02";
+    const ETX = "\x03";
     const placeholders = [];
-
-    function stash(str) {
-        const key = `\x02LATEX${placeholders.length}\x03`;
-        placeholders.push(str);
-        return key;
-    }
 
     let t = text;
 
-    // ディスプレイ数式: $$...$$ （複数行対応）
-    t = t.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => stash(`$$${inner}$$`));
+    // --- 1. 数式を抽出してプレースホルダに置き換える ---
 
-    // ディスプレイ数式: \[...\]
-    t = t.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) => stash(`\\[${inner}\\]`));
+    // A. ディスプレイ数式: $$...$$ (複数行)
+    t = t.replace(/\$\$([\s\S]*?)\$\$/g, (match, inner) => {
+        placeholders.push(match); // マッチした全体を保存
+        return `${STX}${placeholders.length - 1}${ETX}`;
+    });
 
-    // インライン数式: \(...\)
-    t = t.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) => stash(`\\(${inner}\\)`));
+    // B. ディスプレイ数式: \[...\]
+    t = t.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+        placeholders.push(match);
+        return `${STX}${placeholders.length - 1}${ETX}`;
+    });
 
-    // インライン数式: $...$ （$$は上で処理済みなので残った単独$）
-    t = t.replace(/(?<!\$)\$(?!\$)((?:[^$\n]|\\\$)+?)\$(?!\$)/g,
-                  (_, inner) => stash(`$${inner}$`));
+    // C. インライン数式: \(...\)
+    t = t.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
+        placeholders.push(match);
+        return `${STX}${placeholders.length - 1}${ETX}`;
+    });
 
-    // --- 2. 通常の Markdown 前処理 ---
+    // D. インライン数式: $...$ (最も注意が必要なパターン)
+    // 既に置換済みのプレースホルダ（STX...ETX）に干渉しないよう、
+    // 「$」が「$」で囲まれており、かつその中身に「$」が含まれないものに限定する
+    t = t.replace(/(?<![\x02\x03])\$(?!\$)(.+?)(?<!\\)\$(?![\x02\x03])/g, (match) => {
+        // 数式の中に $ が含まれていないか確認（エスケープされた \$ は許容）
+        // もし複雑な数式がある場合は、ここをさらに精緻化する必要がありますが、まずはこれで対応
+        placeholders.push(match);
+        return `${STX}${placeholders.length - 1}${ETX}`;
+    });
+
+    // --- 2. 通常の Markdown 前処理 (preprocessMarkdown) ---
+    // ここで $ や \ が書き換えられても、STX/ETX は安全
     t = preprocessMarkdown(t);
 
-    // --- 3. Marked でHTMLに変換 ---
+    // --- 3. Marked で HTML に変換 ---
     let html = marked.parse(t);
 
-    // --- 4. プレースホルダーを LaTeX に戻す ---
-    html = html.replace(/\x02LATEX(\d+)\x03/g, (_, i) => placeholders[+i]);
+    // --- 4. プレースホルダを元の数式に戻す ---
+    // HTML エンティティ化されてしまわないよう、慎重に置換
+    html = html.replace(new RegExp(`${STX}(\\d+)${ETX}`, 'g'), (match, i) => {
+        return placeholders[parseInt(i, 10)];
+    });
 
     return html;
 }
