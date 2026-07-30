@@ -281,6 +281,11 @@ body.sidebar-closed #conv-title {
     color: #333;
     opacity: 0.7;
 }
+/* 推論中にアクションボタンを無効化する */
+body.is-inferring .action-btn {
+    pointer-events: none; /* クリック不可 */
+    opacity: 0.5;         /* 見た目も半透明にする */
+}
 
 .bubble{
   box-sizing: border-box;
@@ -518,26 +523,41 @@ body.sidebar-closed #conv-title {
 }
 
 /* -------------------------------------------------------------
-   6. UIブロッカー（ストリーミング中に全操作を無効化）
+   6. UIロック設定（サイドバーと入力エリアを個別にロック）
 ------------------------------------------------------------- */
-#ui-blocker{
-    position:fixed;
-    top:0; left:0;
-    width:100%; height:100%;
-    background:transparent;
-    z-index: 500; /* 100以下の値に変更し、入力エリア(z-index:100)より下に配置 */
-    display:none;
+/* ロック状態の要素は、クリックを無効化する */
+#sidebar.locked,
+#input-area.locked {
+    pointer-events: none;
+}
+
+/* ロック状態の要素の上に「透明な壁」を作り、禁止アイコンを表示させつつクリックを遮断する */
+#sidebar.locked::after,
+#input-area.locked::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    cursor: not-allowed; /* 禁止アイコン */
+    pointer-events: auto; /* 壁自体はマウスイベントを受け取るようにする */
+    z-index: 10000;      /* 最前面に配置 */
+}
+
+/* ★重要：停止ボタンだけは「透明な壁」よりも手前に出して操作可能にする */
+#stop-btn {
+    position: relative;
+    z-index: 10001; 
+    pointer-events: auto;
 }
 /* -------------------------------------------------------------
    6‑1. サイドバーがロック中の見た目
 ------------------------------------------------------------- */
-#sidebar.locked{
+#sidebar.locked,
+#sidebar.locked li {
     background-color: #e0e0e0 !important; /* 統一したグレーの背景色 */
     color: #888 !important;               /* 統一した薄い文字色 */
     border-color: #ccc !important;        /* 統一した薄い枠線 */
-    pointer-events: none;
-    cursor: not-allowed;                  /* 「禁止マーク」のカーソルにする */
-    opacity: 1;                           /* ボタンの不透明度変化をリセット（任意） */
+    cursor: not-allowed !important;         /* 「禁止マーク」のカーソルにする */
+    opacity: 1;                             /* ボタンの不透明度変化をリセット（任意） */
 }
 
 #sidebar-toggle {
@@ -719,8 +739,6 @@ marked.setOptions({
     </div>
 </div>
 
-<div id="ui-blocker"></div>
-
 <script>
 /* -------------------------------------------------------------
    0. 定数・ストレージキー
@@ -784,7 +802,6 @@ const convListEl        = document.getElementById('conv-list');
 const newConvBtn        = document.getElementById('new-conv');
 const titleEl           = document.getElementById('title');
 const convTitleEl       = document.getElementById('conv-title');
-const uiBlocker         = document.getElementById('ui-blocker');
 const sidebarEl         = document.getElementById('sidebar');
 const sidebarToggleBtn  = document.getElementById('sidebar-toggle');
 const sidebarToggleMobileBtn = document.getElementById('sidebar-toggle-mobile');
@@ -807,8 +824,6 @@ const imagePreviewArea  = document.getElementById('image-preview-area');
    3. UI ロック／アンロック
 ------------------------------------------------------------- */
 function blockUI(){
-    uiBlocker.style.display = 'block';
-    uiBlocker.style.pointerEvents = 'none';
     userInput.disabled = true;
     sendBtn.style.display = 'none';
     stopBtn.style.display = 'inline-block';
@@ -819,12 +834,13 @@ function blockUI(){
     sidebarToggleMobileBtn.disabled  = true;
     clearHistoryBtn.disabled  = true;
 
-    // サイドバー本体をロック
+    // サイドバーと入力エリアにロック用クラスを付与
     sidebarEl.classList.add('locked');
+    document.getElementById('input-area').classList.add('locked'); 
+    bodyEl.classList.add('is-inferring');
 }
 
 function unblockUI(){
-    uiBlocker.style.display = 'none';
     userInput.disabled = false;
     sendBtn.style.display = 'inline-block';
     stopBtn.style.display = 'none';
@@ -835,8 +851,10 @@ function unblockUI(){
     sidebarToggleMobileBtn.disabled  = false;
     clearHistoryBtn.disabled  = false;
 
-    // サイドバーのロック解除
+    // ロック用クラスを解除
     sidebarEl.classList.remove('locked');
+    document.getElementById('input-area').classList.remove('locked');
+    bodyEl.classList.remove('is-inferring');
 }
     
 /* -------------------------------------------------------------
@@ -1561,8 +1579,6 @@ function renderChat(conv){
             editBtn.textContent = '✒';
             editBtn.title = '編集する';
             editBtn.onclick = () => {
-                // UIがロックされていたら実行しない
-                if (uiBlocker.style.display === 'block') return; 
                 onEditMessage(index);
             };
 
@@ -1571,8 +1587,6 @@ function renderChat(conv){
             rerunBtn.textContent = '🔁';
             rerunBtn.title = 'ここから再生成';
             rerunBtn.onclick = () => {
-                // UIがロックされていたら実行しない
-                if (uiBlocker.style.display === 'block') return;
                 onRerunMessage(index);
             };
 
@@ -1582,7 +1596,6 @@ function renderChat(conv){
             copyPromptBtn.innerHTML = '📋';
             copyPromptBtn.title = 'コピーする';
             copyPromptBtn.onclick = async () => {
-                if (uiBlocker.style.display === 'block') return;
                 try {
                     await navigator.clipboard.writeText(targetMsg.content || "");
                     const originalTitle = copyPromptBtn.title;
@@ -1594,7 +1607,6 @@ function renderChat(conv){
             };
             // targetMsgが定義されていないため、ループ内のmsgを使用するように修正
             copyPromptBtn.onclick = async () => {
-                if (uiBlocker.style.display === 'block') return;
                 try {
                     await navigator.clipboard.writeText(msg.content || "");
                     const originalTitle = copyPromptBtn.title;
@@ -1620,7 +1632,6 @@ function renderChat(conv){
             copyBotBtn.innerHTML = '📋';
             copyBotBtn.title = 'コピーする';
             copyBotBtn.onclick = async () => {
-                if (uiBlocker.style.display === 'block') return;
                 try {
                     await navigator.clipboard.writeText(msg.content || "");
                     const originalTitle = copyBotBtn.title;
@@ -1963,7 +1974,7 @@ window.addEventListener('click', (e) => {
 });
 
 /* -------------------------------------------------------------
-   22. ページ離脱（リロード・閉じる）時に /v1/stop を呼び出す
+   22. ページ離脱（リロード・閉じる）時に推論を強制停止する
 ------------------------------------------------------------- */
 window.addEventListener('beforeunload', async (e) => {
     // 1️⃣ 可能なら streaming を abort
@@ -1971,7 +1982,7 @@ window.addEventListener('beforeunload', async (e) => {
         abortController.abort();          // fetch の中断
     }
 
-    // 2️⃣ LLM に対して明示的に stop 要求を送信
+    // 2️⃣ llama.cppサーバーへ空の推論指示を送信
     try{
         await fetch(API_URL, {
             method: 'POST',
@@ -1988,7 +1999,7 @@ stopBtn.addEventListener('click', async () => {
         abortController.abort(); // ブラウザ側のFetchを中断
     }
     
-    // llama.cppサーバーへ停止信号を送信
+    // llama.cppサーバーへ空の推論指示を送信
     try {
         await fetch(API_URL, {
             method: 'POST',
