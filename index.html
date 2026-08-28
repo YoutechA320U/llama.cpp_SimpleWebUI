@@ -299,6 +299,8 @@ body.is-inferring .action-btn {
   background: var(--bubble-bg-bot);
   word-wrap: break-word;
   position: relative; /* 追加 */
+  user-select: text;
+  -webkit-user-select: text;
 }
 .bot .bubble{
     border-bottom-left-radius: 2px;
@@ -621,7 +623,8 @@ body.sidebar-closed #sidebar-toggle {
 
 #clear-history-btn {
     width: 100%;
-    padding: 10px;
+    margin:0;
+    padding:8px 12px;
     background: #f44336; /* 赤色 */
     color: #fff;
     border: none;
@@ -659,6 +662,223 @@ body.sidebar-closed #sidebar-toggle {
     cursor: not-allowed;                  /* 「禁止マーク」のカーソルにする */
     opacity: 1;                           /* ボタンの不透明度変化をリセット（任意） */
 }
+/* -------------------------------------------------------------
+   7. テーマ切り替えボタン（ライト/ダーク）
+------------------------------------------------------------- */
+html {
+    color-scheme: light;
+}
+html[data-theme="dark"] {
+    color-scheme: dark;
+}
+html[data-theme="dark"] {
+    --bubble-bg-user: #073b4c;
+    --bubble-bg-bot: #262626;
+    --bubble-fg: #e0e0e0;
+    --code-bg: #1e1e1e;
+    --code-fg: #d7d7d7;
+}
+
+#theme-toggle {
+    position: fixed;
+    top: 10px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: 12px;
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    z-index: 10003;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background: #fff;
+    color: #333;
+    font-family: var(--emoji-font), sans-serif;
+    font-size: 1.45rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.10);
+    transition: background .15s ease, color .15s ease, transform .1s ease;
+}
+#theme-toggle:hover {
+    background: #f0f0f0;
+    transform: scale(1.05);
+}
+#theme-toggle:active {
+    transform: scale(0.95);
+}
+#theme-toggle:focus-visible {
+    outline: 2px solid #1976d2;
+    outline-offset: 2px;
+}
+#title {
+    padding-right: 64px;
+}
+
+/* ダークモード用 */
+html[data-theme="dark"] #theme-toggle {
+    background: #2f2f2f;
+    color: #e0e0e0;
+    border-color: #555;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+html[data-theme="dark"] #theme-toggle:hover {
+    background: #3a3a3a;
+}
+html[data-theme="dark"] body {
+    background: #121212;
+    color: #e0e0e0;
+}
+html[data-theme="dark"] #sidebar {
+    background: #1e1e1e;
+    border-right-color: #333;
+}
+html[data-theme="dark"] #sidebar-toggle {
+    color: #e0e0e0;
+}
+html[data-theme="dark"] #sidebar-toggle:hover {
+    color: #90caf9;
+}
+html[data-theme="dark"] #sidebar h3 {
+    background: #242424;
+    color: #e0e0e0;
+    border-bottom-color: #333;
+}
+html[data-theme="dark"] #conv-list li {
+    border-bottom-color: #2f2f2f;
+}
+html[data-theme="dark"] #conv-list li:hover {
+    background: #252525;
+}
+html[data-theme="dark"] #conv-list li.active {
+    background: #103945;
+}
+html[data-theme="dark"] .del-btn {
+    color: #ff8a80;
+}
+html[data-theme="dark"] .del-btn:hover {
+    color: #ff5252;
+}
+html[data-theme="dark"] .edit-btn {
+    color: #82b1ff;
+}
+html[data-theme="dark"] .edit-btn:hover {
+    color: #5c9eff;
+}
+html[data-theme="dark"] body.sidebar-closed #sidebar-toggle {
+    background: #1e1e1e;
+    border-right-color: #333;
+}
+html[data-theme="dark"] #sidebar-toggle-mobile {
+    background: #2f2f2f;
+    color: #e0e0e0;
+    border-color: #555;
+}
+html[data-theme="dark"] #sidebar-toggle-mobile:hover {
+    background: #3a3a3a;
+}
+html[data-theme="dark"] #title {
+    color: #e0e0e0;
+}
+html[data-theme="dark"] #conv-title {
+    color: #9e9e9e;
+}
+html[data-theme="dark"] .bubble {
+    color: #e0e0e0;
+}
+html[data-theme="dark"] .bubble code {
+    background: #2b2b2b;
+    color: #ff9999;
+}
+html[data-theme="dark"] .bubble th,
+html[data-theme="dark"] .bubble td {
+    border-color: #555;
+}
+html[data-theme="dark"] .bubble th {
+    background: #2b2b2b;
+}
+html[data-theme="dark"] .copy-btn,
+html[data-theme="dark"] .toggle-btn {
+    background: #333;
+    color: #e0e0e0;
+}
+html[data-theme="dark"] .copy-btn:hover,
+html[data-theme="dark"] .toggle-btn:hover {
+    background: #444;
+}
+html[data-theme="dark"] .action-btn {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+}
+html[data-theme="dark"] .action-btn:hover {
+    background: rgba(255, 255, 255, 0.28);
+    color: #fff;
+}
+html[data-theme="dark"] .action-btn img {
+    filter: invert(1);
+}
+html[data-theme="dark"] .loading {
+    background: #ccc;
+}
+html[data-theme="dark"] .preview-item {
+    border-color: #555;
+}
+html[data-theme="dark"] #user-input {
+    background: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #555;
+}
+html[data-theme="dark"] #user-input::placeholder {
+    color: #888;
+}
+html[data-theme="dark"] #attach-img-btn {
+    background: #2f2f2f;
+    color: #e0e0e0;
+    border-color: #555;
+}
+html[data-theme="dark"] #attach-img-btn:hover {
+    background: #3a3a3a;
+}
+html[data-theme="dark"] #send-btn {
+    background: #e0e0e0;
+    color: #212121;
+    border: 1px solid #555;
+}
+html[data-theme="dark"] #stop-btn,
+html[data-theme="dark"] #cancel-edit-btn {
+    background: #c62828;
+}
+html[data-theme="dark"] #clear-history-wrapper {
+    border-top-color: #333;
+}
+html[data-theme="dark"] #clear-history-btn {
+    background: #c62828;
+}
+html[data-theme="dark"] #clear-history-btn:hover {
+    background: #b71c1c;
+}
+html[data-theme="dark"] #sidebar.locked,
+html[data-theme="dark"] #sidebar.locked li {
+    background-color: #111 !important;
+    color: #888 !important;
+    border-color: #333 !important;
+}
+html[data-theme="dark"] #attach-btn:disabled,
+html[data-theme="dark"] #user-input:disabled,
+html[data-theme="dark"] #attach-img-btn:disabled{
+    background-color: #333 !important;
+    color: #888 !important;
+    border-color: #444 !important;
+}
+html[data-theme="dark"] mjx-container,
+html[data-theme="dark"] .MathJax {
+    color: #e0e0e0 !important;
+}
+
 </style>
 
 <!-- ★ Markdown パーサ (marked.js) を CDN から読み込み -->
@@ -692,9 +912,93 @@ marked.setOptions({
     }
   };
 </script>
+<script>
+  (function () {
+    try {
+      const saved = localStorage.getItem("ui-theme");
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const theme = saved || (prefersDark ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch (e) {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  })();
+</script>
 
 </head>
 <body class="sidebar-closed">
+<button id="theme-toggle" title="テーマ切り替え" aria-label="ライト/ダークモード切り替え">🌙</button>
+
+<script>
+(function () {
+    const themeToggle = document.getElementById("theme-toggle");
+    if (!themeToggle) return;
+
+    function getTheme() {
+        return document.documentElement.getAttribute("data-theme") || "light";
+    }
+
+    function updateThemeButton() {
+        const dark = getTheme() === "dark";
+        themeToggle.textContent = dark ? "☀️" : "🌙";
+
+        const label = dark
+            ? "ライトモードに切り替え"
+            : "ダークモードに切り替え";
+
+        themeToggle.setAttribute("title", label);
+        themeToggle.setAttribute("aria-label", label);
+    }
+
+    function setTheme(theme, persist = false) {
+        document.documentElement.setAttribute("data-theme", theme);
+
+        if (persist) {
+            try {
+                localStorage.setItem("ui-theme", theme);
+            } catch (e) {
+                // localStorage が使えない環境では無視
+            }
+        }
+
+        updateThemeButton();
+    }
+
+    // 初期表示用
+    updateThemeButton();
+
+    // ボタンクリックで切り替え
+    themeToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+
+        const next = getTheme() === "dark" ? "light" : "dark";
+        setTheme(next, true);
+    });
+
+    // OS のテーマ変更にも追従する（手動保存がある場合は追従しない）
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const onSystemThemeChange = (e) => {
+        let saved = null;
+        try {
+            saved = localStorage.getItem("ui-theme");
+        } catch (err) {
+            // localStorage が使えない環境では無視
+        }
+
+        if (!saved) {
+            setTheme(e.matches ? "dark" : "light", false);
+        }
+    };
+
+    if (typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", onSystemThemeChange);
+    } else if (typeof mq.addListener === "function") {
+        // 古いブラウザ互換
+        mq.addListener(onSystemThemeChange);
+    }
+})();
+</script>
 
 <!-- モバイル用ハンバーガーボタン（サイドバー外） -->
 <button id="sidebar-toggle-mobile">☰</button>
@@ -756,6 +1060,7 @@ const FREQUENCY_PENALTY= 0.0;//過去に同じトークンが現れた回数が�
 const TRIM_TOKEN_01 = "";
 const TRIM_TOKEN_02 = "";
 const TRIM_TOKEN_03 = "";
+const TRIM_TOKEN_04 = "";
 
 /* 画像を読み込んだ後リサイズする幅と高さ（環境に合わせて調整してください。大きすぎると読み込めず、小さすぎると上手く認識できません） */
 const MAX_WIDTH = 400;
@@ -1743,6 +2048,82 @@ async function handleUserSubmit(){
     renderChat(curConv);
     await streamBotResponse(curConv);
 }
+/* -------------------------------------------------------------
+   18-2. 追加: 選択中はbubbleを差し替えないリアルタイム更新
+------------------------------------------------------------- */
+function isSelectionInside(el) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return false;
+
+    for (let i = 0; i < sel.rangeCount; i++) {
+        const range = sel.getRangeAt(i);
+        if (el.contains(range.commonAncestorContainer)) return true;
+    }
+    return false;
+}
+
+async function typesetMath(target) {
+    if (!window.MathJax) return;
+
+    // MathJaxがまだstartup中の場合は待つ
+    if (window.MathJax.startup && window.MathJax.startup.promise) {
+        await window.MathJax.startup.promise;
+    }
+
+    if (!document.body.contains(target)) return;
+    if (isSelectionInside(target)) return;
+
+    if (window.MathJax.typesetClear) {
+        window.MathJax.typesetClear([target]);
+    }
+    if (window.MathJax.typesetPromise) {
+        await window.MathJax.typesetPromise([target]);
+    }
+}
+
+let streamRenderBubble = null;
+let streamRenderText = "";
+let streamRenderQueued = false;
+let streamRenderChain = Promise.resolve();
+
+function scheduleStreamRender(bubble, text) {
+    if (!bubble) return;
+
+    streamRenderBubble = bubble;
+    streamRenderText = text;
+
+    // 選択/コピー中はbubbleを再作成しない
+    if (isSelectionInside(bubble)) return;
+
+    if (streamRenderQueued) return;
+    streamRenderQueued = true;
+
+    // 前のMathJax typeset待ちと直列化して重さを抑える
+    streamRenderChain = streamRenderChain.then(async () => {
+        streamRenderQueued = false;
+
+        const target = streamRenderBubble;
+        if (!target || !document.body.contains(target)) return;
+        if (isSelectionInside(target)) return;
+
+        target.innerHTML = renderMarkdown(streamRenderText);
+
+        // Markdown内のコードをリアルタイムハイライト
+        if (window.hljs) {
+            target.querySelectorAll("pre code").forEach(code => {
+                hljs.highlightElement(code);
+            });
+        }
+    }).catch(() => {});
+}
+
+// 選択解除後に最新の文字列で追いつく
+document.addEventListener("selectionchange", () => {
+    if (!streamRenderBubble) return;
+    if (isSelectionInside(streamRenderBubble)) return;
+
+    scheduleStreamRender(streamRenderBubble, streamRenderText);
+});
 
 /* -------------------------------------------------------------
    19. ボット応答ストリーミング
@@ -1771,9 +2152,17 @@ async function streamBotResponse(curConv) {
     async function finishGeneration() {
         if (loadingSpan.parentNode) loadingSpan.remove();
 
+    // 終了直後はストリーム再描画を止める
+    streamRenderBubble = null;
+
+    // 直前のリアルタイムMathJax処理が終わってから最終確定する
+    await streamRenderChain;
+
+        if (loadingSpan.parentNode) loadingSpan.remove();
+
         let trimmed = botContent;
 
-        // トリミング処理
+        // 最終的なトリミング処理
         if (TRIM_TOKEN_01 && TRIM_TOKEN_01.length > 0) {
             const idx = trimmed.lastIndexOf(TRIM_TOKEN_01);
             if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_01.length);
@@ -1786,8 +2175,10 @@ async function streamBotResponse(curConv) {
             const idx = trimmed.lastIndexOf(TRIM_TOKEN_03);
             if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_03.length);
         }
-
-        // 1. 最終的な表示を確定（Markdown変換）
+        if (TRIM_TOKEN_04 && TRIM_TOKEN_04.length > 0) {
+            const idx = trimmed.lastIndexOf(TRIM_TOKEN_04);
+            if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_04.length);
+        }
         botBubble.innerHTML = renderMarkdown(trimmed);
 
          // 2. ここで「一度だけ」ハイライトとMathJaxを実行
@@ -1862,12 +2253,28 @@ async function streamBotResponse(curConv) {
                             const data = JSON.parse(line.substring(6));
                             if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
                                 botContent += data.choices[0].delta.content;
-                            // ストリーミング中のリアルタイム表示
-                            botBubble.innerHTML = renderMarkdown(botContent);
-                            // ストリーミング中のリアルタイム表示でMathJaxは超重くなるのでやらない方がいい
-                            //if (window.MathJax && window.MathJax.typesetPromise) {
-                            //    window.MathJax.typesetPromise([botBubble]);
-                            //}
+
+                            // ★ 表示用にもトリミングを適用
+                            let displayContent = botContent;
+                            if (TRIM_TOKEN_01 && TRIM_TOKEN_01.length > 0) {
+                                const idx = displayContent.lastIndexOf(TRIM_TOKEN_01);
+                                if (idx !== -1) displayContent = displayContent.slice(idx + TRIM_TOKEN_01.length);
+                            }
+                            if (TRIM_TOKEN_02 && TRIM_TOKEN_02.length > 0) {
+                                const idx = displayContent.lastIndexOf(TRIM_TOKEN_02);
+                                if (idx !== -1) displayContent = displayContent.slice(idx + TRIM_TOKEN_02.length);
+                            }
+                            if (TRIM_TOKEN_03 && TRIM_TOKEN_03.length > 0) {
+                                const idx = displayContent.lastIndexOf(TRIM_TOKEN_03);
+                                if (idx !== -1) displayContent = displayContent.slice(idx + TRIM_TOKEN_03.length);
+                            }
+                            if (TRIM_TOKEN_04 && TRIM_TOKEN_04.length > 0) {
+                                const idx = displayContent.lastIndexOf(TRIM_TOKEN_04);
+                                if (idx !== -1) displayContent = displayContent.slice(idx + TRIM_TOKEN_04.length);
+                            }
+
+                            // bubble全体を毎回差し替えず、選択中は更新を止める
+                            scheduleStreamRender(botBubble, displayContent);
                             }
                         } catch (e) {
                         console.error("JSON parse error", e);
@@ -1893,6 +2300,7 @@ async function streamBotResponse(curConv) {
     } finally {
         unblockUI();
         abortController = null;
+        streamRenderBubble = null;
     }
 }
 
@@ -2014,8 +2422,8 @@ newConvBtn.addEventListener('click', createNewConversation);
 
 /* スクロール制御ロジック ★ */
 chatDiv.addEventListener('scroll', () => {
-    // スクロール位置が最下部から20px以内であれば、自動スクロールを有効にする
-    const threshold = 20;
+    // スクロール位置が最下部から40px以内であれば、自動スクロールを有効にする
+    const threshold = 40;
     const isBottom = chatDiv.scrollHeight - chatDiv.scrollTop - chatDiv.clientHeight <= threshold;
     
     if (isBottom) {
