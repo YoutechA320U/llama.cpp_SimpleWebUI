@@ -2,6 +2,7 @@
 
 ![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image01.png "UIのイメージ") 
 ![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image02.png "マルチモーダルのイメージ") 
+![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image03.png "ダークモードのイメージ") 
 
 `llama.cpp` のサーバー機能など（OpenAI互換API）を利用して、ブラウザから簡単にLLMと対話できる軽量なWebUIです。
 マルチモーダル対応（画像入力）および会話履歴の保存機能を備えており、シングルHTMLファイルで動作します。
@@ -55,9 +56,9 @@
 - **画像リサイズ機能**:
   - `MAX_WIDTH` `MAX_HEIGHT`: LLMへの負荷を抑えるため、クライアント側で画像を指定サイズにリサイズして送信します(400x400)
 - **その他**:
-  - `TRIM_TOKEN_01~03`: Reasoningモデルなどでトリミングする文字を指定して、出力完了後Reasoning部分をカットするのに使います
+  - `TRIM_TOKEN_01~04`: Reasoningモデルなどでトリミングする文字を指定して、出力完了後Reasoning部分をカットするのに使います
 
-##　技術スタック
+##  技術スタック
 
 - **Frontend**: HTML5, CSS3, JavaScript (Vanilla JS)
 - **Markdown Parser**: [marked.js](https://marked.js.org/)
