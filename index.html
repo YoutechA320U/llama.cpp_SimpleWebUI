@@ -362,7 +362,7 @@ body.is-inferring .action-btn {
 }
 
 /* インラインコードは少しだけ装飾 */
-.bubble code{
+.bubble :not(pre) > code{
   background:#f0f0f0;
   color:#c7254e;
   padding:0.1rem 0.3rem;
@@ -421,7 +421,9 @@ body.is-inferring .action-btn {
     flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 8px;
+    align-items: flex-start; /* 縦揃え用 */
 }
+
 .preview-item {
     position: relative;
     width: 60px;
@@ -430,7 +432,9 @@ body.is-inferring .action-btn {
     border-radius: 4px;
     background-size: cover;
     background-position: center;
+    flex-shrink: 0;
 }
+
 .remove-img-btn {
     position: absolute;
     top: -6px;
@@ -448,6 +452,62 @@ body.is-inferring .action-btn {
     justify-content: center;
     padding: 0;
     line-height: 1;
+    z-index: 2;
+}
+
+/* テキストファイルのプレビュー用 */
+.preview-item-text {
+    position: relative;
+    width: auto;
+    min-width: 60px;
+    max-width: 720px;
+    min-height: 20px;
+    height: auto;
+    padding: 6px 24px 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    color: #333;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    text-align: center;
+}
+
+/* チャット内に表示する添付ファイルチップ */
+.chat-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.chat-file-wrap {
+    position: relative;
+    display: inline-flex;
+}
+.chat-file {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 24px 0 8px;
+    border: 1px solid #bbb;
+    border-radius: 12px;
+    background: #f5f5f5;
+    color: #333;
+    font-size: 0.75rem;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
 }
 
 #input-area{
@@ -662,7 +722,25 @@ body.sidebar-closed #sidebar-toggle {
     cursor: not-allowed;                  /* 「禁止マーク」のカーソルにする */
     opacity: 1;                           /* ボタンの不透明度変化をリセット（任意） */
 }
-/* -------------------------------------------------------------
+
+/* --- アイコンのスタイル追加 --- */
+.msg-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;/*画像角を丸く削る処理。50%だと円形*/
+    object-fit: cover; /*アス比に収まるよう画像を切り抜く設定*/
+    margin-bottom: 4px;
+}
+/* ボット側のアイコンは左に、ユーザー側は右（バブルの右側）に配置するための調整 */
+.msg-row.bot {
+    justify-content: flex-start;
+    gap: 8px; /* アイコンとバブルの隙間 */
+}
+.msg-row.user {
+    justify-content: flex-end;
+    gap: 8px; /* アイコンとバブルの隙間 */
+    flex-direction: row; /* アイコンを右側に持っていく */
+}/* -------------------------------------------------------------
    7. テーマ切り替えボタン（ライト/ダーク）
 ------------------------------------------------------------- */
 html {
@@ -789,7 +867,7 @@ html[data-theme="dark"] #conv-title {
 html[data-theme="dark"] .bubble {
     color: #e0e0e0;
 }
-html[data-theme="dark"] .bubble code {
+html[data-theme="dark"] .bubble :not(pre) > code {
     background: #2b2b2b;
     color: #ff9999;
 }
@@ -825,6 +903,16 @@ html[data-theme="dark"] .loading {
     background: #ccc;
 }
 html[data-theme="dark"] .preview-item {
+    border-color: #555;
+}
+html[data-theme="dark"] .preview-item-text {
+    background: #2f2f2f;
+    color: #e0e0e0;
+    border-color: #555;
+}
+html[data-theme="dark"] .chat-file {
+    background: #2b2b2b;
+    color: #e0e0e0;
     border-color: #555;
 }
 html[data-theme="dark"] #user-input {
@@ -1033,8 +1121,14 @@ marked.setOptions({
         <div id="image-preview-area"></div>
         
         <div id="input-area">
-            <button id="attach-img-btn" title="画像を添付">🖼️</button>
-            <input type="file" id="img-input" accept="image/*" multiple style="display:none;">
+            <button id="attach-img-btn" title="画像・テキストファイルを添付">✙</button>
+            <input
+            type="file"
+            id="img-input"
+            accept="image/*,text/plain,.txt,.md,.markdown,.csv,.json,.log,.yaml,.yml,.xml,.html,.htm,.css,.js,.mjs,.cjs,.ts,.tsx,.jsx,.py,.rb,.go,.rs,.java,.kt,.php,.pl,.sh,.bat,.ini,.conf,.toml,.properties,.sql,.r,.m,.h,.c,.cpp,.hpp,.cs"
+            multiple
+            style="display:none;"
+            >
             <textarea id="user-input" placeholder="質問を入力…"></textarea>
             <button id="send-btn"title="送信">➤</button>
             <button id="stop-btn">■</button>
@@ -1065,6 +1159,9 @@ const TRIM_TOKEN_04 = "";
 /* 画像を読み込んだ後リサイズする幅と高さ（環境に合わせて調整してください。大きすぎると読み込めず、小さすぎると上手く認識できません） */
 const MAX_WIDTH = 400;
 const MAX_HEIGHT = 400;
+
+// テキストファイルの取り込み上限。localStorage対策
+const MAX_TEXT_CHARS = 100000;
 
 // スクロール制御用フラグ
 let shouldAutoScroll = true;
@@ -1197,11 +1294,14 @@ let editState = {
 let isSidebarOpen = false;
 let desktopSidebarWasOpen = true; // デスクトップでの展開状態を記憶する変数
 
-// 添付予定の画像（Base64形式の文字列の配列）
-let currentPendingImages = [];
+/* 添付予定ファイル
+   { type: 'image', name, data }
+   { type: 'text',  name, content }
+*/
+let currentPendingFiles = [];
 
 /* -------------------------------------------------------------
-   6. 画像選択・プレビュー処理
+   6. ファイル選択・プレビュー処理
 ------------------------------------------------------------- */
 attachImgBtn.addEventListener('click', () => {
     imgInput.click();
@@ -1210,11 +1310,37 @@ attachImgBtn.addEventListener('click', () => {
 imgInput.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     files.forEach(file => {
-        processImageFile(file); // 共通関数を呼び出す
+        processFile(file);
     });
-    imgInput.value = ''; // リセット
+    imgInput.value = '';
 });
 
+function isImageFile(file) {
+    return file && file.type && file.type.startsWith('image/');
+}
+
+function isTextFile(file) {
+    if (!file) return false;
+
+    const exts = [
+        'txt','md','markdown','csv','json','log','yaml','yml','xml','html','htm',
+        'css','js','mjs','cjs','ts','tsx','jsx','py','rb','go','rs','java','kt',
+        'php','pl','sh','bat','ini','conf','toml','properties','sql','r','m',
+        'h','c','cpp','hpp','cs'
+    ];
+
+    const name = file.name || '';
+    const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+
+    const mimeOk =
+        file.type &&
+        (
+            file.type.startsWith('text/') ||
+            file.type === 'application/json'
+        );
+
+    return mimeOk || exts.includes(ext);
+}
 
 /**
  * 画像を読み込み、長辺が指定したサイズになるようにリサイズして新しいData URLを返す非同期関数
@@ -1257,25 +1383,114 @@ function resizeImage(dataUrl) {
     });
 }
 
-function renderPendingImages() {
+/**
+ * 画像ファイルを処理して currentPendingFiles に追加する
+ */
+function processImageFile(file) {
+    const reader = new FileReader();
+
+    reader.onload = (ev) => {
+        const dataUrl = ev.target.result;
+
+        resizeImage(dataUrl)
+            .then(resizedDataUrl => {
+                currentPendingFiles.push({
+                    type: 'image',
+                    name: file.name || 'image',
+                    data: resizedDataUrl
+                });
+                renderPendingAttachments();
+            })
+            .catch(err => console.error("画像処理エラー:", err));
+    };
+
+    reader.onerror = () => {
+        alert('画像の読み込みに失敗しました。');
+    };
+
+    reader.readAsDataURL(file);
+}
+
+/**
+ * テキストファイルを読み込んで currentPendingFiles に追加する
+ */
+function processTextFile(file) {
+    const reader = new FileReader();
+
+    reader.onload = (ev) => {
+        let text = ev.target.result || '';
+
+        if (text.length > MAX_TEXT_CHARS) {
+            alert(`テキストが大きすぎるので ${MAX_TEXT_CHARS} 文字まで切り詰めました。`);
+            text = text.slice(0, MAX_TEXT_CHARS) + '\n...(truncated)';
+        }
+
+        currentPendingFiles.push({
+            type: 'text',
+            name: file.name || 'textfile.txt',
+            content: text
+        });
+
+        renderPendingAttachments();
+    };
+
+    reader.onerror = () => {
+        alert('テキストの読み込みに失敗しました。');
+    };
+
+    reader.readAsText(file);
+}
+
+/**
+ * ファイル種別に応じて処理する
+ */
+function processFile(file) {
+    if (!file) return;
+
+    if (isImageFile(file)) {
+        processImageFile(file);
+        return;
+    }
+
+    if (isTextFile(file)) {
+        processTextFile(file);
+        return;
+    }
+
+    alert('画像またはテキストファイルのみ添付できます。');
+}
+
+/**
+ * 添付予定ファイルをプレビュー表示する
+ */
+function renderPendingAttachments() {
     imagePreviewArea.innerHTML = '';
-    currentPendingImages.forEach((dataUrl, index) => {
+
+    currentPendingFiles.forEach((item, index) => {
         const wrapper = document.createElement('div');
+
+        if (item.type === 'image') {
         wrapper.className = 'preview-item';
-        wrapper.style.backgroundImage = `url(${dataUrl})`;
+            wrapper.style.backgroundImage = `url(${item.data})`;
+        } else {
+            wrapper.className = 'preview-item preview-item-text';
+            wrapper.textContent = item.name;
+            wrapper.title = item.name;
+        }
         
         const removeBtn = document.createElement('button');
         removeBtn.className = 'remove-img-btn';
         removeBtn.innerHTML = '×';
         removeBtn.onclick = () => {
-            currentPendingImages.splice(index, 1);
-            renderPendingImages();
+            currentPendingFiles.splice(index, 1);
+            renderPendingAttachments();
         };
         
         wrapper.appendChild(removeBtn);
         imagePreviewArea.appendChild(wrapper);
     });
 }
+
 /* -------------------------------------------------------------
    7. ペースト・ドラッグアンドドロップ処理
 ------------------------------------------------------------- */
@@ -1283,10 +1498,12 @@ function renderPendingImages() {
 // --- ペーストイベント (Ctrl+V) ---
 userInput.addEventListener('paste', (e) => {
     const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+
     for (let item of items) {
-        if (item.type.indexOf("image") !== -1) {
+        // ファイルとして貼り付けられたものだけ扱う
+        if (item.kind === 'file') {
             const file = item.getAsFile();
-            processImageFile(file);
+            if (file) processFile(file);
         }
     }
 });
@@ -1301,30 +1518,13 @@ window.addEventListener('dragover', (e) => {
 window.addEventListener('drop', (e) => {
     e.preventDefault();
     e.stopPropagation();
+
     const files = Array.from(e.dataTransfer.files);
     files.forEach(file => {
-        if (file.type.startsWith('image/')) {
-            processImageFile(file);
-        }
+        processFile(file);
     });
 });
 
-/**
- * ファイルを読み込んでリサイズし、プレビューに追加する共通関数
- */
-function processImageFile(file) {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        const dataUrl = ev.target.result;
-        resizeImage(dataUrl)
-            .then(resizedDataUrl => {
-                currentPendingImages.push(resizedDataUrl);
-                renderPendingImages();
-            })
-            .catch(err => console.error("処理エラー:", err));
-    };
-    reader.readAsDataURL(file);
-}
 /* -------------------------------------------------------------
    8. ローカルストレージ操作
 ------------------------------------------------------------- */
@@ -1848,6 +2048,13 @@ function renderChat(conv){
         const row = document.createElement('div');
         row.className = `msg-row ${isUser ? 'user' : 'bot'}`;
 
+        // ★ アイコンの生成 ★
+        const icon = document.createElement('img');
+        icon.className = 'msg-icon';
+        // ここに表示したい画像のURLを入れる
+        icon.src = isUser ? "User.png" : "Bot.png";  
+        icon.alt = isUser ? 'User' : 'Bot';
+
         const bubble = document.createElement('div');
         bubble.className = 'bubble';
         
@@ -1862,7 +2069,21 @@ function renderChat(conv){
             });
             bubble.appendChild(imgContainer);
         }
-        
+        // ★ テキストファイルがある場合は表示する
+        if (msg.textFiles && msg.textFiles.length > 0) {
+            const fileContainer = document.createElement('div');
+            fileContainer.className = 'chat-files';
+
+            msg.textFiles.forEach(f => {
+                const chip = document.createElement('div');
+                chip.className = 'chat-file';
+                chip.textContent = f.name;
+                chip.title = f.content;
+                fileContainer.appendChild(chip);
+            });
+
+            bubble.appendChild(fileContainer);
+        }
         // テキストを描画
         if (msg.content) {
             const textDiv = document.createElement('div');
@@ -1928,6 +2149,8 @@ function renderChat(conv){
 
             row.appendChild(actionsDiv);
             row.appendChild(bubble);
+            row.appendChild(icon);
+
         } else {
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'msg-actions';
@@ -1949,6 +2172,7 @@ function renderChat(conv){
 
             actionsDiv.appendChild(copyBotBtn);    
 
+            row.appendChild(icon);
             row.appendChild(bubble);
             row.appendChild(actionsDiv);
         }
@@ -1964,19 +2188,43 @@ function renderChat(conv){
 function onEditMessage(index) {
     const curConv = conversations.find(c => c.id === curConvId);
     if (!curConv) return;
+
     const targetMsg = curConv.messages[index];
+
     userInput.value = targetMsg.content || "";
     resizeUserInput();
     
-    // 編集時に画像も復元
-    currentPendingImages = targetMsg.images ? [...targetMsg.images] : [];
-    renderPendingImages();
+    // 編集時に添付ファイルを復元
+    currentPendingFiles = [];
+
+    if (Array.isArray(targetMsg.images)) {
+        targetMsg.images.forEach(data => {
+            currentPendingFiles.push({
+                type: 'image',
+                name: 'image',
+                data: data
+            });
+        });
+    }
+
+    if (Array.isArray(targetMsg.textFiles)) {
+        targetMsg.textFiles.forEach(f => {
+            currentPendingFiles.push({
+                type: 'text',
+                name: f.name || 'textfile.txt',
+                content: f.content || ''
+            });
+        });
+    }
+
+    renderPendingAttachments();
 
     userInput.focus();
     editState.active = true;
     editState.index  = index;
     cancelEditBtn.style.display = isMobileOS() ? 'none' : 'inline-block';
 }
+
 
 function onRerunMessage(index) {
     cancelEdit();
@@ -2002,12 +2250,15 @@ userInput.addEventListener('keydown', e=>{
 ------------------------------------------------------------- */
 function cancelEdit(){
     if (!editState.active) return;
+
     editState.active = false;
     editState.index  = null;
+
     userInput.value = '';
-    currentPendingImages = [];
-    renderPendingImages();
-    resizeUserInput()
+    currentPendingFiles = [];
+    renderPendingAttachments();
+    resizeUserInput();
+
     cancelEditBtn.style.display = 'none';
 }
 
@@ -2017,22 +2268,34 @@ function cancelEdit(){
 async function handleUserSubmit(){
     const prompt = userInput.value.trim();
     
-    // テキストも画像もない場合は何もしない
-    if (!prompt && currentPendingImages.length === 0) return;
+    // テキストも添付ファイルもない場合は何もしない
+    if (!prompt && currentPendingFiles.length === 0) return;
 
     const curConv = conversations.find(c=>c.id===curConvId);
     if (!curConv) return;
 
+    const images = currentPendingFiles
+        .filter(f => f.type === 'image')
+        .map(f => f.data);
+
+    const textFiles = currentPendingFiles
+        .filter(f => f.type === 'text')
+        .map(f => ({
+            name: f.name,
+            content: f.content
+        }));
+
     const newMessage = { 
         role: 'user', 
         content: prompt, 
-        images: [...currentPendingImages] 
+        images: images,
+        textFiles: textFiles
     };
 
     // 入力をクリア
     userInput.value = '';
-    currentPendingImages = [];
-    renderPendingImages();
+    currentPendingFiles = [];
+    renderPendingAttachments();
     resizeUserInput();
     
     if (editState.active){
@@ -2048,6 +2311,7 @@ async function handleUserSubmit(){
     renderChat(curConv);
     await streamBotResponse(curConv);
 }
+
 /* -------------------------------------------------------------
    18-2. 追加: 選択中はbubbleを差し替えないリアルタイム更新
 ------------------------------------------------------------- */
@@ -2135,6 +2399,14 @@ async function streamBotResponse(curConv) {
 
     const row = document.createElement('div');
     row.className = 'msg-row bot';
+
+    // ★ ここから追加：ボット用アイコン ★
+    const icon = document.createElement('img');
+    icon.className = 'msg-icon';
+    icon.src = "Bot.png"; 
+    row.appendChild(icon);
+    // ★ ここまで追加 ★
+
     const botBubble = document.createElement('div');
     botBubble.className = 'bubble';
     row.appendChild(botBubble);
@@ -2179,6 +2451,7 @@ async function streamBotResponse(curConv) {
             const idx = trimmed.lastIndexOf(TRIM_TOKEN_04);
             if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_04.length);
         }
+        // 1. 最終的な表示を確定（Markdown変換）
         botBubble.innerHTML = renderMarkdown(trimmed);
 
          // 2. ここで「一度だけ」ハイライトとMathJaxを実行
@@ -2196,17 +2469,62 @@ async function streamBotResponse(curConv) {
 
     // APIに渡すメッセージの構築
     const apiMessages = [{ role: "system", content: getSystemRole() }];
+
     curConv.messages.forEach(msg => {
-        if (msg.images && msg.images.length > 0) {
-            let contentArray = [];
-            if (msg.content) contentArray.push({ type: "text", text: msg.content });
-            msg.images.forEach(imgBase64 => {
-                contentArray.push({ type: "image_url", image_url: { url: imgBase64 } });
+        const hasImages = Array.isArray(msg.images) && msg.images.length > 0;
+        const hasTextFiles = Array.isArray(msg.textFiles) && msg.textFiles.length > 0;
+
+        // 画像がない場合は、テキストファイル内容を文字列へ結合して送る
+        // llama.cpp の OpenAI互換APIで content 配列を嫌う可能性を下げるため
+        if (!hasImages) {
+            let text = msg.content || "";
+
+            if (hasTextFiles) {
+                msg.textFiles.forEach(f => {
+                    text += `\n\n【添付テキストファイル: ${f.name}】\n${f.content}\n【ここまで】`;
+                });
+            }
+
+            apiMessages.push({
+                role: msg.role,
+                content: text
             });
-            apiMessages.push({ role: msg.role, content: contentArray });
-        } else {
-            apiMessages.push({ role: msg.role, content: msg.content });
+
+            return;
         }
+
+        // 画像がある場合は content を配列で送る
+        const contentArray = [];
+
+        if (msg.content) {
+            contentArray.push({
+                type: "text",
+                text: msg.content
+            });
+        }
+
+        if (hasTextFiles) {
+            msg.textFiles.forEach(f => {
+                contentArray.push({
+                    type: "text",
+                    text: `\n\n【添付テキストファイル: ${f.name}】\n${f.content}\n【ここまで】`
+                });
+            });
+        }
+
+            msg.images.forEach(imgBase64 => {
+            contentArray.push({
+                type: "image_url",
+                image_url: {
+                    url: imgBase64
+                }
+            });
+            });
+
+        apiMessages.push({
+            role: msg.role,
+            content: contentArray
+        });
     });
 
     try {
