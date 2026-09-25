@@ -1,8 +1,7 @@
 # llama.cpp_SimpleWebUI
 
-![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image01.png "UIのイメージ") 
-![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image02.png "マルチモーダルのイメージ") 
-![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image03.png "ダークモードのイメージ") 
+![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image01.png "ライトテーマとUIのイメージ") 
+![Picture](https://github.com/YoutechA320U/llama.cpp_SimpleWebUI/blob/master/image/image02.png "ダークテーマとマルチモーダルのイメージ") 
 
 `llama.cpp` のサーバー機能など（OpenAI互換API）を利用して、ブラウザから簡単にLLMと対話できる軽量なWebUIです。
 マルチモーダル対応（画像入力）および会話履歴の保存機能を備えており、シングルHTMLファイルで動作します。
@@ -10,16 +9,18 @@
 ##  特徴
 
 - **マルチモーダル対応**: 画像ファイルを添付して、Visionモデル（gemma-4など）と対話可能です。
+- **ファイル添付対応**: テキストファイルを添付して、各モデルと対話可能です
 - **会話管理**:
     - 複数の会話スレッドを作成・保存（LocalStorageを利用）。
     - 会話名の編集、削除が可能。
     - 会話データのJSONエクスポートおよびインポート機能。
-- **高度なUI/UX**:
+- **UI/UX**:
     - **ストリーミング表示**: 回答がリアルタイムにタイピング形式で表示されます。
-    - **Markdownレンダリング**: テーブルや数式、コードブロックを綺麗に表示。
+    - **Markdownレンダリング**: テーブルや数式、コードブロックを表示。
     - **コードハイライト**: `highlight.js` によるシンタックスハイライトと、ワンクリックコピーボタンを搭載。
-    - **レスポンシブデザイン**: PCだけでなく、スマートフォン等のモバイル端末でも快適に利用可能。
+    - **レスポンシブデザイン**: PCだけでなく、スマートフォン等のモバイル端末でも利用可能。
     - **長い回答の折りたたみ**: 長文の回答は自動的に折りたたまれ、「Show more」で展開できます。
+    - **ライト/ダークテーマ対応**: 2種類のテーマをお好みで切り替えて使用できます。
 - **編集・再生成**: 過去のユーザーメッセージを編集し、その時点から回答を再生成させることができます。
 - **生成停止機能**: ストリーミング中に生成を強制停止させることが可能です。
 
@@ -35,7 +36,7 @@
 ※Visionモデルを使用する場合は、`--mmproj` オプションでマルチモーダルプロジェクターを指定してください。
 
 ### 2. WebUIの起動
-1. 本リポジトリの `index.html` をダウンロードします。
+1. 本リポジトリの `index.html` と`Bot.png`と`User.png`をダウンロードします。
 2. ブラウザ（Chrome, Edge, Firefoxなど）で `index.html` を開きます。
 3. 準備完了です！
 
@@ -57,6 +58,7 @@
   - `MAX_WIDTH` `MAX_HEIGHT`: LLMへの負荷を抑えるため、クライアント側で画像を指定サイズにリサイズして送信します(400x400)
 - **その他**:
   - `TRIM_TOKEN_01~04`: Reasoningモデルなどでトリミングする文字を指定して、Reasoning完了後Reasoning部分をカットするのに使います
+  - `MAX_TEXT_CHARS`: LLMへの負荷を抑えるため、添付するテキストファイルを文字数で制限します(100000)
 
 ##  技術スタック
 
