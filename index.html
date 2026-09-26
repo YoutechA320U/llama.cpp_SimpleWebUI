@@ -2078,7 +2078,9 @@ function renderChat(conv){
                 const chip = document.createElement('div');
                 chip.className = 'chat-file';
                 chip.textContent = f.name;
-                chip.title = f.content;
+                chip.dataset.previewName = f.name || 'textfile.txt';
+                chip.dataset.previewContent = f.content || '';
+                chip.title = 'クリックで内容プレビュー';
                 fileContainer.appendChild(chip);
             });
 
@@ -2774,6 +2776,417 @@ window.addEventListener('DOMContentLoaded', () => {
     renderChat(cur);
     updateTitle();
 });
+</script>
+
+<style>
+/* 画像プレビュー用 */
+.chat-images img,
+.preview-item:not(.preview-item-text){
+  cursor: zoom-in;
+}
+
+#image-preview-modal{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 31000;
+  padding: 16px;
+}
+
+#image-preview-modal.show{
+  display: flex;
+}
+
+#image-preview-box{
+  max-width: min(95vw, 1400px);
+  max-height: 90vh;
+}
+
+#image-preview-img{
+  max-width: 95vw;
+  max-height: 90vh;
+  display: block;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+}
+
+#image-preview-close{
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #222;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 31001;
+}
+
+#image-preview-close:hover{
+  background: #fff;
+}
+
+html[data-theme="dark"] #image-preview-img{
+  background: #111;
+}
+
+html[data-theme="dark"] #image-preview-close{
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+}
+
+html[data-theme="dark"] #image-preview-close:hover{
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* ★ テキスト添付プレビュー ★ */    
+#file-preview-modal{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.55);
+  z-index:30000;
+  padding:16px;
+}
+#file-preview-modal.show{
+  display:flex;
+}
+#file-preview-box{
+  width:min(900px, 95vw);
+  height:min(80vh, 720px);
+  background:#fff;
+  border-radius:10px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  box-shadow:0 12px 36px rgba(0,0,0,.35);
+}
+#file-preview-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:10px 12px;
+  border-bottom:1px solid #ddd;
+  background:#f7f7f7;
+}
+#file-preview-title{
+  font-weight:700;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0;
+}
+#file-preview-actions{
+  display:flex;
+  gap:6px;
+  flex-shrink:0;
+}
+#file-preview-copy{
+  border:1px solid #bbb;
+  background:#fff;
+  border-radius:4px;
+  padding:4px 8px;
+  cursor:pointer;
+  font-size:.8rem;
+}
+#file-preview-copy:hover{
+  background:#eee;
+}
+#file-preview-close{
+  border:none;
+  background:none;
+  font-size:1.6rem;
+  line-height:1;
+  cursor:pointer;
+  color:#333;
+  padding:0 4px;
+}
+#file-preview-body{
+  flex:1;
+  overflow:auto;
+  margin:0;
+  padding:12px;
+  white-space:pre-wrap;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+  font-family:var(--code-font, monospace);
+  font-size:.88rem;
+  color:#212121;
+  background:#fff;
+}
+
+/* プレビュー可能にする */
+.preview-item-text{
+  cursor:pointer;
+}
+.preview-item-text:hover{
+  border-color:#1976d2;
+}
+.chat-file{
+  cursor:pointer;
+}
+.chat-file:hover{
+  background:#e8e8e8;
+}
+
+/* ダークモード */
+html[data-theme="dark"] #file-preview-box{
+  background:#1e1e1e;
+}
+html[data-theme="dark"] #file-preview-header{
+  background:#242424;
+  border-bottom-color:#444;
+  color:#e0e0e0;
+}
+html[data-theme="dark"] #file-preview-close{
+  color:#e0e0e0;
+}
+html[data-theme="dark"] #file-preview-copy{
+  background:#2f2f2f;
+  color:#e0e0e0;
+  border-color:#555;
+}
+html[data-theme="dark"] #file-preview-copy:hover{
+  background:#3a3a3a;
+}
+html[data-theme="dark"] #file-preview-body{
+  background:#1e1e1e;
+  color:#d7d7d7;
+}
+html[data-theme="dark"] .preview-item-text:hover{
+  border-color:#90caf9;
+}
+html[data-theme="dark"] .chat-file:hover{
+  background:#333;
+}
+</style>
+<div id="image-preview-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="画像プレビュー">
+  <button id="image-preview-close" type="button" title="閉じる" aria-label="閉じる">×</button>
+  <div id="image-preview-box">
+    <img id="image-preview-img" alt="画像プレビュー">
+  </div>
+</div>
+<div id="file-preview-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="file-preview-title">
+  <div id="file-preview-box">
+    <div id="file-preview-header">
+      <span id="file-preview-title"></span>
+      <div id="file-preview-actions">
+        <button id="file-preview-copy" type="button">Copy</button>
+        <button id="file-preview-close" type="button" title="閉じる" aria-label="閉じる">×</button>
+      </div>
+    </div>
+    <pre id="file-preview-body"></pre>
+  </div>
+</div>
+
+<script>
+// 画像プレビュー用
+(function(){
+  const modal = document.getElementById('image-preview-modal');
+  const img = document.getElementById('image-preview-img');
+  const closeBtn = document.getElementById('image-preview-close');
+
+  if (!modal || !img || !closeBtn) return;
+
+  function openImagePreview(src, alt = '画像プレビュー') {
+    if (!src) return;
+    img.src = src;
+    img.alt = alt || '画像プレビュー';
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeImagePreview() {
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  window.openImagePreview = openImagePreview;
+
+  modal.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (e.target === modal || e.target === closeBtn) {
+      closeImagePreview();
+    }
+  });
+
+  closeBtn.addEventListener('click', closeImagePreview);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('show')) {
+      closeImagePreview();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    // 削除ボタンは除外
+    if (e.target.closest('.remove-img-btn')) return;
+
+    // チャット内に表示された画像
+    const chatImg = e.target.closest('.chat-images img');
+    if (chatImg) {
+      openImagePreview(chatImg.currentSrc || chatImg.src, chatImg.alt);
+      return;
+    }
+
+    // 送信前プレビューエリアの画像
+    const pendingImg = e.target.closest('.preview-item:not(.preview-item-text)');
+    if (pendingImg) {
+      const idx = Number(pendingImg.dataset.index);
+
+      if (
+        Number.isFinite(idx) &&
+        typeof currentPendingFiles !== 'undefined' &&
+        Array.isArray(currentPendingFiles)
+      ) {
+        const item = currentPendingFiles[idx];
+
+        if (item && item.type === 'image' && item.data) {
+          openImagePreview(item.data, item.name || '画像プレビュー');
+        }
+      }
+    }
+  });
+})();
+</script>
+<script>
+(function(){
+  const modal = document.getElementById('file-preview-modal');
+  const titleEl = document.getElementById('file-preview-title');
+  const bodyEl = document.getElementById('file-preview-body');
+  const closeBtn = document.getElementById('file-preview-close');
+  const copyBtn = document.getElementById('file-preview-copy');
+  let previewText = '';
+
+  function openFilePreview(name, content){
+    previewText = String(content ?? '');
+    titleEl.textContent = String(name ?? 'ファイル');
+    bodyEl.textContent = previewText;
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeFilePreview(){
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  // 他のスクリプトからも使えるようにしておく
+  window.openFilePreview = openFilePreview;
+
+  modal.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (e.target === modal) closeFilePreview();
+  });
+
+  closeBtn.addEventListener('click', closeFilePreview);
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(previewText);
+      const old = copyBtn.textContent;
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = old; }, 1200);
+    } catch (err) {
+      console.warn('Copy failed', err);
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('show')) {
+      closeFilePreview();
+    }
+  });
+
+  // クリックでプレビューを開く
+  document.addEventListener('click', (e) => {
+    // 削除ボタンは除外
+    if (e.target.closest('.remove-img-btn')) return;
+
+    // チャット内に表示されたテキストファイルチップ
+    const chatFile = e.target.closest('.chat-file');
+    if (chatFile) {
+      const name = chatFile.textContent.trim();
+      const content = chatFile.dataset.previewContent || chatFile.title || '';
+      openFilePreview(name, content);
+      return;
+    }
+
+    // 送信前に表示されるテキスト添付チップ
+    const pending = e.target.closest('.preview-item-text');
+    if (pending) {
+      const idx = Number(pending.dataset.index);
+      if (Number.isFinite(idx)) {
+        try {
+          const files = currentPendingFiles;
+          if (Array.isArray(files)) {
+            const item = files[idx];
+            if (item && item.type === 'text') {
+              openFilePreview(item.name || 'textfile.txt', item.content || '');
+            }
+          }
+        } catch (err) {
+          // currentPendingFiles がまだ無い場合は無視
+        }
+      }
+    }
+  });
+})();
+</script>
+
+<script>
+// 既存の renderPendingAttachments を上書きする（画像プレビュー用に index を付与）
+function renderPendingAttachments(){
+  imagePreviewArea.innerHTML = '';
+
+  currentPendingFiles.forEach((item, index) => {
+    const wrapper = document.createElement('div');
+
+    if (item.type === 'image') {
+      wrapper.className = 'preview-item';
+      wrapper.style.backgroundImage = `url(${item.data})`;
+      wrapper.dataset.index = String(index);
+      wrapper.title = 'クリックで画像プレビュー';
+    } else {
+      const name = item.name || 'textfile.txt';
+      wrapper.className = 'preview-item preview-item-text';
+      wrapper.textContent = name;
+      wrapper.dataset.index = String(index);
+      wrapper.title = `${name}\nクリックで内容プレビュー`;
+    }
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-img-btn';
+    removeBtn.innerHTML = '×';
+    removeBtn.onclick = () => {
+      currentPendingFiles.splice(index, 1);
+      renderPendingAttachments();
+    };
+
+    wrapper.appendChild(removeBtn);
+    imagePreviewArea.appendChild(wrapper);
+  });
+}
+
+// すでに読み込み済みの場合だけ初期描画し直す
+if (document.readyState !== 'loading') {
+  try {
+    renderPendingAttachments();
+  } catch (e) {
+    console.warn('renderPendingAttachments init failed', e);
+  }
+}
 </script>
 </body>
 </html>
