@@ -27,7 +27,7 @@
 ##  使い方
 
 ### 1. llama.cpp サーバーの起動
-このWebUIを利用するには、`llama.cpp` のサーバーを起動しておく必要があります。
+このWebUIを利用するには、`llama.cpp` などのOpenAI互換APIのサーバーを起動しておく必要があります。
 
 ```bash
 # 例: サーバーを起動 (ポート8080)
@@ -57,7 +57,7 @@
 - **画像リサイズ機能**:
   - `MAX_WIDTH` `MAX_HEIGHT`: LLMへの負荷を抑えるため、クライアント側で画像を指定サイズにリサイズして送信します(400x400)
 - **その他**:
-  - `TRIM_TOKEN_01~04`: Reasoningモデルなどでトリミングする文字を指定して、Reasoning完了後Reasoning部分をカットするのに使います
+  - `TRIM_TOKEN_01~04`: llama-serverで--reasoning-format noneとしている場合トリミングする文字を指定して、Reasoning完了後Reasoning部分をカットするのに使います
   - `MAX_TEXT_CHARS`: LLMへの負荷を抑えるため、添付するテキストファイルを文字数で制限します(100000)
 
 ##  技術スタック

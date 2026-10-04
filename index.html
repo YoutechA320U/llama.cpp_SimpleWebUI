@@ -340,6 +340,26 @@ body.is-inferring .action-btn {
   padding: 0;                 /* 余計な padding を除去 */
   border-radius: var(--code-radius);
 }
+/* ★ Reasoning 本文をバブル幅で折り返す */
+.bubble .reasoning {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.bubble pre.reasoning-content {
+  white-space: pre-wrap;       /* 改行は維持しつつ、幅を超えたら折り返す */
+  overflow-wrap: anywhere;     /* URL や長い英単語も折り返す */
+  word-break: break-word;      /* 長語の折り返し補助 */
+  word-wrap: break-word;       /* 旧ブラウザ用フォールバック */
+  overflow-x: hidden;          /* 横スクロールではなく折り返しにする */
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.bubble .reasoning-content,
+.bubble pre.reasoning-content {
+  background: transparent !important;
+  color: var(--bubble-fg) !important;
+}
 
 /* コピー／展開ボタンの共通デザイン */
 .copy-btn,
@@ -2412,6 +2432,12 @@ async function streamBotResponse(curConv) {
     const botBubble = document.createElement('div');
     botBubble.className = 'bubble';
     row.appendChild(botBubble);
+
+    // ★ 追加：本文用の要素をバブル内に作成
+    const contentEl = document.createElement('div');
+    contentEl.className = 'msg-content';
+    botBubble.appendChild(contentEl);
+
     chatDiv.appendChild(row);
     chatDiv.scrollTop = chatDiv.scrollHeight;
 
@@ -2420,9 +2446,22 @@ async function streamBotResponse(curConv) {
     botBubble.appendChild(loadingSpan);
 
     let botContent = '';
+    let botReasoning = '';
+    let reasoningEl = null;
 
-    // ★ 終了処理を一つの関数に集約
-    // これにより、[DONE]受信、自然終了、停止ボタン押下、のすべてで同じ品質の保存が行われる
+    // ★ Reasoning要素の取得・生成
+    function ensureReasoningEl() {
+        if (reasoningEl) return reasoningEl;
+        reasoningEl = document.createElement('details');
+        reasoningEl.className = 'reasoning';
+        reasoningEl.open = true;
+        reasoningEl.innerHTML = '<summary>Reasoning</summary><pre class="reasoning-content"></pre>';
+        
+        // バブルの先頭（loadingSpanの前など）に挿入
+        botBubble.insertBefore(reasoningEl, loadingSpan);
+        return reasoningEl;
+    }
+
     async function finishGeneration() {
         if (loadingSpan.parentNode) loadingSpan.remove();
 
@@ -2432,7 +2471,11 @@ async function streamBotResponse(curConv) {
     // 直前のリアルタイムMathJax処理が終わってから最終確定する
     await streamRenderChain;
 
-        if (loadingSpan.parentNode) loadingSpan.remove();
+        // ★ Reasoningが残っていれば、ここでも削除して本文だけ残す
+        if (reasoningEl) {
+            reasoningEl.remove();
+            reasoningEl = null;
+        }
 
         let trimmed = botContent;
 
@@ -2453,12 +2496,14 @@ async function streamBotResponse(curConv) {
             const idx = trimmed.lastIndexOf(TRIM_TOKEN_04);
             if (idx !== -1) trimmed = trimmed.slice(idx + TRIM_TOKEN_04.length);
         }
+
+        // ★ botBubble ではなく contentEl を書き換える
         // 1. 最終的な表示を確定（Markdown変換）
-        botBubble.innerHTML = renderMarkdown(trimmed);
+        contentEl.innerHTML = renderMarkdown(trimmed);
 
          // 2. ここで「一度だけ」ハイライトとMathJaxを実行
-        await applyHighlightAndCopy(botBubble);
-        addCollapsible(botBubble);
+        await applyHighlightAndCopy(contentEl);
+        addCollapsible(contentEl);
 
         // 履歴への保存
         curConv.messages.push({
@@ -2535,13 +2580,13 @@ async function streamBotResponse(curConv) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-            model: "llama", 
-            messages: apiMessages,
-            stream: true,
-            temperature: TEMPERATURE,
-            top_p: TOP_P,
-            presence_penalty: PRESENCE_PENALTY,
-            frequency_penalty: FREQUENCY_PENALTY
+                model: "flash-next",
+                messages: apiMessages,
+                stream: true,
+                temperature: TEMPERATURE,
+                top_p: TOP_P,
+                presence_penalty: PRESENCE_PENALTY,
+                frequency_penalty: FREQUENCY_PENALTY
             }),
             signal: abortController.signal
         });
@@ -2550,31 +2595,50 @@ async function streamBotResponse(curConv) {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
+        let sseBuffer = '';
         let done = false;
 
         while (true) {
             const { value, done: readerDone } = await reader.read();
-            if (readerDone) {
-                done = true;
-                break;
-            }
+            if (readerDone) { done = true; break; }
 
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
+            sseBuffer += decoder.decode(value, { stream: true });
+            const lines = sseBuffer.split(/\r?\n/);
+            sseBuffer = lines.pop() ?? '';
                 
-                for (const line of lines) {
-                    if (line === 'data: [DONE]') {
-                    done = true;
-                    break; // ループを抜けて、下の finishGeneration() へ
+            for (const rawLine of lines) {
+                const line = rawLine.trim();
+                if (!line.startsWith('data:')) continue;
+
+                const payload = line.slice(5).trim();
+                if (payload === '[DONE]') { done = true; break; }
+
+                        try {
+                    const data = JSON.parse(payload);
+                    const choice = data.choices?.[0];
+                    const delta = choice?.delta || {};
+                    const msg = choice?.message;
+
+                    let rc = delta.reasoning_content ?? delta.reasoning ?? null;
+                    if (rc == null && msg?.reasoning_content) rc = msg.reasoning_content;
+
+                    if (typeof rc === 'string' && rc.length > 0) {
+                        botReasoning += rc;
+                        const el = ensureReasoningEl();
+                        el.querySelector('.reasoning-content').textContent = botReasoning;
+                        if (shouldAutoScroll) chatDiv.scrollTop = chatDiv.scrollHeight;
                     }
 
-                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                        try {
-                            const data = JSON.parse(line.substring(6));
-                            if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
-                                botContent += data.choices[0].delta.content;
+                    if (delta.content) {
+                        // ★ contentが来た＝Reasoning終了とみなす
+                        // バブルの中からReasoning要素を即削除する
+                        if (reasoningEl) {
+                            reasoningEl.remove();
+                            reasoningEl = null;
+                        }
 
-                            // ★ 表示用にもトリミングを適用
+                        botContent += delta.content;
+
                             let displayContent = botContent;
                             if (TRIM_TOKEN_01 && TRIM_TOKEN_01.length > 0) {
                                 const idx = displayContent.lastIndexOf(TRIM_TOKEN_01);
@@ -2593,12 +2657,11 @@ async function streamBotResponse(curConv) {
                                 if (idx !== -1) displayContent = displayContent.slice(idx + TRIM_TOKEN_04.length);
                             }
 
-                            // bubble全体を毎回差し替えず、選択中は更新を止める
-                            scheduleStreamRender(botBubble, displayContent);
+                        // ★ botBubble ではなく contentEl を渡す
+                        scheduleStreamRender(contentEl, displayContent);
                             }
                         } catch (e) {
-                        console.error("JSON parse error", e);
-                        }
+                    console.error("SSE JSON parse error", e, payload);
                     }
                 }
             if (done) break;
@@ -2615,7 +2678,7 @@ async function streamBotResponse(curConv) {
             finishGeneration();
         } else {
             console.error("Stream error:", err);
-            botBubble.innerHTML += `<br><span style="color:red;">Error: ${err.message}</span>`;
+            contentEl.innerHTML += `<br><span style="color:red;">Error: ${err.message}</span>`;
         }
     } finally {
         unblockUI();
