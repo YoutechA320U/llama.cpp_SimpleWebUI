@@ -1145,7 +1145,7 @@ marked.setOptions({
             <input
             type="file"
             id="img-input"
-            accept="image/*,text/plain,.txt,.md,.markdown,.csv,.json,.log,.yaml,.yml,.xml,.html,.htm,.css,.js,.mjs,.cjs,.ts,.tsx,.jsx,.py,.rb,.go,.rs,.java,.kt,.php,.pl,.sh,.bat,.ini,.conf,.toml,.properties,.sql,.r,.m,.h,.c,.cpp,.hpp,.cs"
+            accept="image/*,text/plain,.txt,.md,.markdown,.csv,.json,.log,.yaml,.yml,.xml,.html,.htm,.css,.js,.mjs,.cjs,.ts,.tsx,.jsx,.py,.rb,.go,.rs,.java,.kt,.php,.pl,.sh,.bat,.ini,.conf,.toml,.properties,.sql,.r,.m,.h,.c,.cpp,.hpp,.cs,.ino,.jinja"
             multiple
             style="display:none;"
             >
@@ -1162,6 +1162,7 @@ marked.setOptions({
    0. 定数・ストレージキー
 ------------------------------------------------------------- */
 const API_URL          = "http://localhost:8080/v1/chat/completions";
+const API_KEY          = "";
 const STORAGE_KEY      = "llm_conversations";
 
 /* ---- LLM へ渡すパラメータ ---- */
@@ -1191,6 +1192,19 @@ let isUserScrolling = false;
 function isMobileOS() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
+/* API_KEYヘッダ生成関数 */
+function getApiHeaders() {
+    const headers = {
+        "Content-Type": "application/json"
+    };
+
+    if (API_KEY) {
+        headers["Authorization"] = `Bearer ${API_KEY}`;
+    }
+
+    return headers;
+}
+
 /* -------------------------------------------------------------
    1. SYSTEM_ROLE
 ------------------------------------------------------------- */
@@ -1346,7 +1360,7 @@ function isTextFile(file) {
         'txt','md','markdown','csv','json','log','yaml','yml','xml','html','htm',
         'css','js','mjs','cjs','ts','tsx','jsx','py','rb','go','rs','java','kt',
         'php','pl','sh','bat','ini','conf','toml','properties','sql','r','m',
-        'h','c','cpp','hpp','cs'
+        'h','c','cpp','hpp','cs','ino','jinja'
     ];
 
     const name = file.name || '';
@@ -2411,13 +2425,31 @@ document.addEventListener("selectionchange", () => {
     scheduleStreamRender(streamRenderBubble, streamRenderText);
 });
 
+
 /* -------------------------------------------------------------
    19. ボット応答ストリーミング
 ------------------------------------------------------------- */
 let abortController = null;
+let activeReader = null;
+
+function abortCurrentInference() {
+    // fetch 自体を中断
+    if (abortController) {
+        abortController.abort();
+    }
+
+    // ストリーム reader も可能なら明示的に閉じる
+    if (activeReader) {
+        try {
+            activeReader.cancel().catch(() => {});
+        } catch (_) {}
+        activeReader = null;
+    }
+}
 
 async function streamBotResponse(curConv) {
     blockUI();
+    let finished = false;
 
     const row = document.createElement('div');
     row.className = 'msg-row bot';
@@ -2463,6 +2495,9 @@ async function streamBotResponse(curConv) {
     }
 
     async function finishGeneration() {
+        if (finished) return;
+        finished = true;
+
         if (loadingSpan.parentNode) loadingSpan.remove();
 
     // 終了直後はストリーム再描画を止める
@@ -2575,10 +2610,12 @@ async function streamBotResponse(curConv) {
     });
 
     try {
-        abortController = new AbortController();
+        const controller = new AbortController();
+        abortController = controller;
+
         const response = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getApiHeaders(),
             body: JSON.stringify({
                 model: "flash-next",
                 messages: apiMessages,
@@ -2588,12 +2625,21 @@ async function streamBotResponse(curConv) {
                 presence_penalty: PRESENCE_PENALTY,
                 frequency_penalty: FREQUENCY_PENALTY
             }),
-            signal: abortController.signal
+            signal: controller.signal
         });
 
         if (!response.ok) throw new Error(`HTTP Error! status: ${response.status}`);
 
         const reader = response.body.getReader();
+        activeReader = reader;
+
+        // Abort されたら reader も閉じる
+        controller.signal.addEventListener('abort', () => {
+            try {
+                reader.cancel().catch(() => {});
+            } catch (_) {}
+        }, { once: true });
+
         const decoder = new TextDecoder('utf-8');
         let sseBuffer = '';
         let done = false;
@@ -2669,20 +2715,20 @@ async function streamBotResponse(curConv) {
             }
 
         // ★ 正常終了または [DONE] 受信時
-        finishGeneration();
+        await finishGeneration();
 
     } catch (err) {
         if (err.name === 'AbortError') {
             console.log("Stream aborted by user");
-            // ★ 停止ボタンが押された場合も、そこまでの内容で finishGeneration を実行
-            finishGeneration();
+            await finishGeneration();
         } else {
             console.error("Stream error:", err);
             contentEl.innerHTML += `<br><span style="color:red;">Error: ${err.message}</span>`;
         }
     } finally {
-        unblockUI();
+        activeReader = null;
         abortController = null;
+        unblockUI();
         streamRenderBubble = null;
     }
 }
@@ -2767,46 +2813,19 @@ window.addEventListener('click', (e) => {
 /* -------------------------------------------------------------
    22. ページ離脱（リロード・閉じる）時に推論を強制停止する
 ------------------------------------------------------------- */
-window.addEventListener('beforeunload', async (e) => {
-    // 1️⃣ 可能なら streaming を abort
-    if (abortController){
-        abortController.abort();          // fetch の中断
-    }
-
-    // 2️⃣ llama.cppサーバーへ空の推論指示を送信
-    try{
-        await fetch(API_URL, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({})
-        });
-    }catch(err){
-        //何もしない
-    }
+window.addEventListener('beforeunload', () => {
+    abortCurrentInference();
 });
 /* --- 停止ボタンのクリックイベント --- */
-stopBtn.addEventListener('click', async () => {
-    if (abortController) {
-        abortController.abort(); // ブラウザ側のFetchを中断
-    }
-    
-    // llama.cppサーバーへ空の推論指示を送信
-    try {
-        await fetch(API_URL, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({})
-        });
-    }catch(err){
-        //何もしない
-    }
+stopBtn.addEventListener('click', () => {
+    abortCurrentInference();
 });
 newConvBtn.addEventListener('click', createNewConversation);
 
 /* スクロール制御ロジック ★ */
 chatDiv.addEventListener('scroll', () => {
-    // スクロール位置が最下部から40px以内であれば、自動スクロールを有効にする
-    const threshold = 40;
+    // スクロール位置が最下部から45px以内であれば、自動スクロールを有効にする
+    const threshold = 45;
     const isBottom = chatDiv.scrollHeight - chatDiv.scrollTop - chatDiv.clientHeight <= threshold;
     
     if (isBottom) {
