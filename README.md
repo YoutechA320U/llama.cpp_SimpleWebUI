@@ -46,6 +46,7 @@
 
 - **APIエンドポイント**:
   - `API_URL`: `llama.cpp` サーバーのチャット補完エンドポイント（デフォルト: `http://localhost:8080/v1/chat/completions`）
+  - `API_KEY`: 必要な場合API_KEYを入力してください(空欄) 
   - `STORAGE_KEY`: LocalStorageの名称
 - **生成パラメータ**:
   - `TEMPERATURE`: 生成の多様性（0.8）
