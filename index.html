@@ -425,7 +425,10 @@ body.is-inferring .action-btn {
     height:40px;
     background:linear-gradient(to bottom,transparent,var(--bubble-bg-bot));
 }
-
+.has-toggle{
+    position: relative;   /* ボタンの位置基準をこの要素自身に揃える */
+    padding-top: 30px;    /* 右上のボタン1行分の空間を確保 */
+}
 /* -------------------------------------------------------------
    4. 入力エリア
 ------------------------------------------------------------- */
@@ -1900,6 +1903,7 @@ function addCollapsible(bubble){
         const height = bubble.scrollHeight;
         if (height > 200){
             bubble.classList.add('collapsed');
+            bubble.classList.add('has-toggle');
             const toggle = document.createElement('button');
             toggle.type = 'button';
             toggle.className = 'toggle-btn';
