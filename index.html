@@ -2486,7 +2486,7 @@ async function streamBotResponse(curConv) {
         if (reasoningEl) return reasoningEl;
         reasoningEl = document.createElement('details');
         reasoningEl.className = 'reasoning';
-        reasoningEl.open = true;
+        reasoningEl.open = false;
         reasoningEl.innerHTML = '<summary>Reasoning</summary><pre class="reasoning-content"></pre>';
         
         // バブルの先頭（loadingSpanの前など）に挿入
