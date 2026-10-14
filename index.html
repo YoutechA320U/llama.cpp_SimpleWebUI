@@ -76,6 +76,20 @@ body{
     flex-shrink: 0;
     width: 100%;             /* 幅をいっぱいにする */
     box-sizing: border-box;  /* paddingを含めた幅計算にする */
+    position: relative;   /* z-indexを効かせるため */
+    z-index: 10002;       /* ロック用の透明な壁(10000)より手前 */
+    pointer-events: auto; /* 親(#sidebar.locked)の none を上書き */
+}
+/* ロック中のグレー化（色・カーソル）をハンバーガーには適用しない */
+#sidebar.locked #sidebar-toggle {
+    color: #333 !important;
+    background: none !important;
+    cursor: pointer !important;
+}
+
+/* サイドバー閉状態の固定ハンバーガーも壁より手前に */
+body.sidebar-closed #sidebar-toggle {
+    z-index: 10002;   /* 既存の z-index: 1002 を 10002 に変更 */
 }
 #sidebar-toggle:hover {
     color: #1976d2;
@@ -989,7 +1003,9 @@ html[data-theme="dark"] mjx-container,
 html[data-theme="dark"] .MathJax {
     color: #e0e0e0 !important;
 }
-
+html[data-theme="dark"] #sidebar.locked #sidebar-toggle {
+    color: #e0e0e0 !important;
+}
 </style>
 
 <!-- ★ Markdown パーサ (marked.js) を CDN から読み込み -->
@@ -1269,7 +1285,6 @@ function blockUI(){
     cancelEditBtn.disabled = true;
     newConvBtn.disabled    = true;
     attachImgBtn.disabled  = true;
-    sidebarToggleBtn.disabled  = true;
     sidebarToggleMobileBtn.disabled  = true;
     clearHistoryBtn.disabled  = true;
 
@@ -1286,7 +1301,6 @@ function unblockUI(){
     cancelEditBtn.disabled = false;
     newConvBtn.disabled    = false;
     attachImgBtn.disabled  = false;
-    sidebarToggleBtn.disabled  = false;
     sidebarToggleMobileBtn.disabled  = false;
     clearHistoryBtn.disabled  = false;
 
